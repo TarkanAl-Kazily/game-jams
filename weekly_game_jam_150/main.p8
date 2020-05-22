@@ -18,9 +18,16 @@ function _init()
   p_hdl = agents_lib_create(_s.game,
     "player",
     {create_player, update_player, draw_mob},
-    {ani={16, 17}, rate=15, times_acted=0,
+    {ani={16, 17}, rate=15,
      x=1, y=1},
     10)
+
+  e_hdl = agents_lib_create(_s.game,
+    "slime",
+    {create_slime, update_slime, draw_mob},
+    {x=8, y=8},
+    9)
+
   m_hdl = agents_lib_create(_s.game,
     "map",
     {create_map, update_map, draw_map},
@@ -41,6 +48,29 @@ end
 -->8
 --> entity code
 
+-- datastructure to handle turns
+_mobs = {head=0}
+
+function active(a)
+  if (#_mobs < 1) then
+    return false
+  end
+
+  if (_mobs.head == 0) then
+    _mobs.head = 1
+  end
+
+  return a.name == _mobs[_mobs.head].name
+end
+
+function pass(a)
+  if not active(a) then
+    return
+  end
+
+  _mobs.head = (_mobs.head % #_mobs) + 1
+end
+
 --[[
  structure representing a mobile entity with an animation
  suggested entries in args:
@@ -53,6 +83,7 @@ function create_mob(args)
     ani={1}, frame=1, rate=0,
   }
   ret = merge_tables(ret, args)
+  add(_mobs, ret)
   return ret
 end
 
@@ -75,6 +106,8 @@ function create_player(args)
 end
 
 function update_player(a)
+  if (not active(a)) return
+
   -- handle button input
   local next_state = {x=a.x, y=a.y}
   local acted = false
@@ -87,7 +120,7 @@ function update_player(a)
   -- handle monster turn
   if next_state.x != a.x or next_state.y != a.y then
     acted = true
-    a.times_acted += 1
+    pass(a)
   end
   a = merge_tables(a, next_state)
 end
@@ -97,8 +130,6 @@ function draw_mob(a)
     a.frame = ((_t \ a.rate) % #a.ani) + 1
   end
   spr(a.ani[a.frame], a.x * 8, a.y * 8)
-  print(a.times_acted, 8)
-  pal()
 end
 
 function move_entity(dir)
@@ -119,6 +150,26 @@ function move_entity(dir)
 
     return ret
   end
+end
+
+-->8
+-- enemy code
+
+-- slimes: green, small, simple!
+function create_slime(args)
+  local ret = create_mob(args)
+  ret.ani = {32, 33, 34, 34}
+  ret.rate = 5
+
+  return ret
+end
+
+function update_slime(a)
+  if (not active(a)) return
+
+  local next_state = move_entity(flr(rnd(4)))(a)
+  pass(a)
+  a = merge_tables(a, next_state)
 end
 
 -->8
