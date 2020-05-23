@@ -18,13 +18,23 @@ function _init()
   p_hdl = agents_lib_create(_s.game,
     "player",
     {create_player, update_player, draw_mob},
-    {ani={16, 17}, rate=15, x=1, y=1},
+    {ani={16, 17}, rate=15, pos={1, 1}},
     10)
 
   e_hdl = agents_lib_create(_s.game,
     "slime",
     {create_slime, update_slime, draw_mob},
-    {x=8, y=8},
+    {pos={8, 8}},
+    9)
+  e_hdl = agents_lib_create(_s.game,
+    "slime",
+    {create_slime, update_slime, draw_mob},
+    {pos={9, 9}},
+    9)
+  e_hdl = agents_lib_create(_s.game,
+    "slime",
+    {create_slime, update_slime, draw_mob},
+    {pos={11, 11}},
     9)
 
   m_hdl = agents_lib_create(_s.game,
@@ -34,7 +44,7 @@ function _init()
     1)
 end
 
-function _update()
+function _update60()
   _t += 1
   agents_lib_update(_s[state])
 end
@@ -42,7 +52,11 @@ end
 function _draw()
   cls()
   agents_lib_draw(_s[state])
-  draw_distances(_s[state].agents[p_hdl])
+  --draw_distances(get_agent(p_hdl).pos)
+end
+
+function get_agent(hdl)
+  return _s[state].agents[hdl]
 end
 
 -->8
@@ -79,7 +93,7 @@ end
 ]]
 function create_mob(args)
   local ret = {
-    x=0, y=0,
+    pos={0, 0},
     ani={1}, frame=1, rate=0,
   }
   ret = merge_tables(ret, args)
@@ -109,7 +123,7 @@ function update_player(a)
   if (not active(a)) return
 
   -- handle button input
-  local next_state = {x=a.x, y=a.y}
+  local next_state = {}
   local acted = false
   for i=0,5 do
     if (btnp(i)) then
@@ -117,8 +131,9 @@ function update_player(a)
     end
   end
 
-  -- handle monster turn
-  if next_state.x != a.x or next_state.y != a.y then
+  -- handle turn
+  if (next_state.pos != nil) and (next_state.pos[1] != a.pos[1] or next_state.pos[2] != a.pos[2]) then
+    printh("player passing")
     acted = true
     pass(a)
   end
@@ -129,7 +144,7 @@ function draw_mob(a)
   if a.rate > 0 then
     a.frame = ((_t \ a.rate) % #a.ani) + 1
   end
-  spr(a.ani[a.frame], a.x * 8, a.y * 8)
+  spr(a.ani[a.frame], a.pos[1] * 8, a.pos[2] * 8)
 end
 
 function move_entity(dir)
@@ -141,14 +156,14 @@ function move_entity(dir)
   if (dir == 3) dy = 1
 
   return function(a) 
-    local ret = {x=mid(0, a.x + dx, 15), y=mid(0, a.y + dy, 15)}
+    local ret = {mid(0, a.pos[1] + dx, 15), mid(0, a.pos[2] + dy, 15)}
 
     -- handle collision
     if get_flag_at(ret, SOLID) then
       return a
     end
 
-    return ret
+    return {pos=ret}
   end
 end
 
@@ -167,9 +182,20 @@ end
 function update_slime(a)
   if (not active(a)) return
 
-  local next_state = move_entity(flr(rnd(4)))(a)
+  local d = distances(get_agent(p_hdl).pos)
+  local next_pos = a.pos
+  local best_dist = d[next_pos[1] * 16 + next_pos[2]]
+  for v in all(neighbors4(a.pos)) do
+    dv = d[v[1] * 16 + v[2]]
+    if dv < best_dist then
+      next_pos = v
+      best_dist = dv
+    end
+  end
+  a.pos = next_pos
+  printh(a.pos[1]..','..a.pos[2])
+
   pass(a)
-  a = merge_tables(a, next_state)
 end
 
 -->8
@@ -191,29 +217,23 @@ function draw_map(a)
 end
 
 function get_flag_at(pos, ...)
-  if pos.x == nil then
-    return fget(mget(pos[1], pos[2]), ...)
-  end
-  return fget(mget(pos.x, pos.y), ...)
+  return fget(mget(pos[1], pos[2]), ...)
 end
 
 --[[
  computes the distance from every cell to pos
 ]]
 function distances(pos)
-  printh("distances")
   local res = {}
-  local q = {{pos.x, pos.y, 0}}
+  local q = {{pos[1], pos[2], 0}}
   local h = 1
   while h <= #q do
     local v = q[h]
     h += 1
     local idx = v[1] * 16 + v[2]
     if (res[idx] == nil) or (v[3] < res[idx]) then
-      printh(v[1]..','..v[2])
       res[idx] = v[3]
       for u in all(neighbors4(v)) do
-        printh(u[1]..','..u[2])
         add(q, {u[1], u[2], v[3] + 1})
       end
     end
@@ -223,18 +243,14 @@ end
 
 function neighbors4(x, y)
   local _x, _y = x, y
-  if (_y == nil and x.x != nil) then
-    _x, _y = x.x, x.y
-  else
+  if _y == nil then
     _x, _y = x[1], x[2]
   end
   local res = {{_x, _y+1}, {_x, _y-1}, {_x+1, _y}, {_x-1, _y}}
   for v in all(res) do
-    printh(v[1]..','..v[2])
     if (get_flag_at(v, SOLID)) del(res, v)
     if (v[1] < 0 or v[1] > 15 or v[2] < 0 or v[2] > 15) del(res, v)
   end
-  printh(#res)
   return res
 end
 
