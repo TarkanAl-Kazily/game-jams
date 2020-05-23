@@ -18,8 +18,7 @@ function _init()
   p_hdl = agents_lib_create(_s.game,
     "player",
     {create_player, update_player, draw_mob},
-    {ani={16, 17}, rate=15,
-     x=1, y=1},
+    {ani={16, 17}, rate=15, x=1, y=1},
     10)
 
   e_hdl = agents_lib_create(_s.game,
@@ -43,6 +42,7 @@ end
 function _draw()
   cls()
   agents_lib_draw(_s[state])
+  draw_distances(_s[state].agents[p_hdl])
 end
 
 -->8
@@ -144,7 +144,7 @@ function move_entity(dir)
     local ret = {x=mid(0, a.x + dx, 15), y=mid(0, a.y + dy, 15)}
 
     -- handle collision
-    if get_flag_at(ret, _s[state].agents[m_hdl].solid) then
+    if get_flag_at(ret, SOLID) then
       return a
     end
 
@@ -175,10 +175,11 @@ end
 -->8
 -- map code
 
+-- sprite flag constants
+SOLID = 0
+
 function create_map(args)
   local ret = {x=0, y=0, w=16, h=16}
-  -- tile flags
-  ret.solid = 0
   return merge_tables(ret, args)
 end
 
@@ -190,7 +191,64 @@ function draw_map(a)
 end
 
 function get_flag_at(pos, ...)
+  if pos.x == nil then
+    return fget(mget(pos[1], pos[2]), ...)
+  end
   return fget(mget(pos.x, pos.y), ...)
+end
+
+--[[
+ computes the distance from every cell to pos
+]]
+function distances(pos)
+  printh("distances")
+  local res = {}
+  local q = {{pos.x, pos.y, 0}}
+  local h = 1
+  while h <= #q do
+    local v = q[h]
+    h += 1
+    local idx = v[1] * 16 + v[2]
+    if (res[idx] == nil) or (v[3] < res[idx]) then
+      printh(v[1]..','..v[2])
+      res[idx] = v[3]
+      for u in all(neighbors4(v)) do
+        printh(u[1]..','..u[2])
+        add(q, {u[1], u[2], v[3] + 1})
+      end
+    end
+  end
+  return res
+end
+
+function neighbors4(x, y)
+  local _x, _y = x, y
+  if (_y == nil and x.x != nil) then
+    _x, _y = x.x, x.y
+  else
+    _x, _y = x[1], x[2]
+  end
+  local res = {{_x, _y+1}, {_x, _y-1}, {_x+1, _y}, {_x-1, _y}}
+  for v in all(res) do
+    printh(v[1]..','..v[2])
+    if (get_flag_at(v, SOLID)) del(res, v)
+    if (v[1] < 0 or v[1] > 15 or v[2] < 0 or v[2] > 15) del(res, v)
+  end
+  printh(#res)
+  return res
+end
+
+function draw_distances(pos)
+  local d = distances(pos)
+  for _x=0,15 do
+    for _y=0,15 do
+      local _d = d[_x * 16 + _y]
+      if _d != nil then
+        cursor(_x * 8, _y * 8)
+        print(_d)
+      end
+    end
+  end
 end
 
 -->8
