@@ -10,9 +10,6 @@ __lua__
 _s = {}
 state="game"
 
--- stores all the enemies
-enemies = {}
-
 -- global time
 _t = 0
 
@@ -24,6 +21,16 @@ function _init()
     {ani={16, 17}, rate=15, pos={1, 1}},
     10)
 
+  enemies_hdl = agents_lib_create(_s.game,
+    "enemies",
+    {nil, update_enemies, draw_enemies},
+    enemies_task,
+    9)
+
+  create_enemy("slime",{pos={1,5}})
+  create_enemy("slime",{pos={8,8}})
+
+  --[[
   add(enemies, agents_lib_create(_s.game,
     "slime",
     {create_slime, update_slime, draw_mob},
@@ -39,6 +46,7 @@ function _init()
     {create_slime, update_slime, draw_mob},
     {pos={11, 11}},
     9))
+  ]]
 
   m_hdl = agents_lib_create(_s.game,
     "map",
@@ -69,33 +77,6 @@ end
 -->8
 --> entity code
 
--- datastructure to handle turns
-_mobs = {head=0}
-
-function active(a)
-  if (#_mobs < 1) then
-    return false
-  end
-
-  if (_mobs.head == 0) then
-    _mobs.head = 1
-  end
-
-  return a.name == _mobs[_mobs.head].name
-end
-
-function pass(a)
-  if not active(a) then
-    return
-  end
-
-  _mobs.head = (_mobs.head % #_mobs) + 1
-end
-
-function remove_mob(a)
-  del(_mobs, a)
-end
-
 --[[
  structure representing a mobile entity with an animation
  suggested entries in args:
@@ -106,9 +87,9 @@ function create_mob(args)
   local ret = {
     pos={0, 0},
     ani={1}, frame=1, rate=0,
+    _draw=draw_mob
   }
   ret = merge_tables(ret, args)
-  add(_mobs, ret)
   return ret
 end
 
@@ -132,7 +113,7 @@ function create_player(args)
 end
 
 function update_player(a)
-  if (not active(a)) return
+  if (not PLAYER_ACTIVE) return {}
 
   -- handle button input
   local next_state = {}
@@ -143,11 +124,10 @@ function update_player(a)
     end
   end
 
+  printh("TARKAN")
   if next_state.pos != nil then
-    for hdl in all(enemies) do
-      local e = get_agent(hdl)
+    for e in all(enemies_task) do
       local d = l1_distance(next_state.pos, e.pos)
-      printh(hdl..' d='..d)
       if d < 1 then
         a._interact(a, e)
         acted = true
@@ -161,8 +141,8 @@ function update_player(a)
     end
   end
 
-  if (acted) pass(a)
-  a = merge_tables(a, next_state)
+  if (acted) PLAYER_ACTIVE = false
+  return next_state
 end
 
 --[[
@@ -173,8 +153,7 @@ function player_interact(player, other)
   player.ani = other.ani
   player.rate = other.rate
   player.f = 1
-  remove_agent(other.name)
-  remove_mob(other)
+  del(enemies_task, other)
 end
 
 function draw_player(a)
@@ -210,21 +189,52 @@ function move_entity(dir)
 end
 
 -->8
--- enemy code
+-- enemy manager task code
+
+enemies_hdl = nil
+enemies_task = {}
+
+function create_enemy(enemy_type, args)
+  local e = nil
+  if enemy_type == "slime" then
+    e = create_slime(args)
+  else
+    assert("invalid type: "..enemy_type)
+  end
+  add(enemies_task, e)
+end
+
+function update_enemies(a)
+  if not (PLAYER_ACTIVE) then
+    for e in all(a) do
+      e._update(e)
+    end
+    PLAYER_ACTIVE = true
+  end
+  return {}
+end
+
+function draw_enemies(a)
+  for e in all(a) do
+    e._draw(e)
+  end
+  cursor(1, 1)
+  print(#enemies_task, 8)
+end
+
+-->8
+-- individual enemy code
 
 -- slimes: green, small, simple!
 function create_slime(args)
   local ret = create_mob(args)
   ret.ani = {32, 33, 34, 34}
   ret.rate = 5
-
+  ret._update = update_slime
   return ret
 end
 
 function update_slime(a)
-  if (not active(a)) return
-
-
   local _player_pos = get_agent(p_hdl).pos
 
   if l1_distance(a.pos, _player_pos) < 5 then
@@ -241,8 +251,6 @@ function update_slime(a)
     a.pos = next_pos
   end
   printh(a.pos[1]..','..a.pos[2])
-
-  pass(a)
 end
 
 -->8
