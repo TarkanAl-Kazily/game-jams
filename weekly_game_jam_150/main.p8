@@ -10,6 +10,9 @@ __lua__
 _s = {}
 state="game"
 
+-- stores all the enemies
+enemies = {}
+
 -- global time
 _t = 0
 
@@ -17,25 +20,25 @@ function _init()
   _s.game = agents_lib_init()
   p_hdl = agents_lib_create(_s.game,
     "player",
-    {create_player, update_player, draw_mob},
+    {create_player, update_player, draw_player},
     {ani={16, 17}, rate=15, pos={1, 1}},
     10)
 
-  e_hdl = agents_lib_create(_s.game,
+  add(enemies, agents_lib_create(_s.game,
     "slime",
     {create_slime, update_slime, draw_mob},
-    {pos={8, 8}},
-    9)
-  e_hdl = agents_lib_create(_s.game,
+    {pos={1, 2}},
+    9))
+  add(enemies, agents_lib_create(_s.game,
     "slime",
     {create_slime, update_slime, draw_mob},
     {pos={9, 9}},
-    9)
-  e_hdl = agents_lib_create(_s.game,
+    9))
+  add(enemies, agents_lib_create(_s.game,
     "slime",
     {create_slime, update_slime, draw_mob},
     {pos={11, 11}},
-    9)
+    9))
 
   m_hdl = agents_lib_create(_s.game,
     "map",
@@ -57,6 +60,10 @@ end
 
 function get_agent(hdl)
   return _s[state].agents[hdl]
+end
+
+function remove_agent(hdl)
+  agents_lib_remove(_s[state], hdl)
 end
 
 -->8
@@ -83,6 +90,10 @@ function pass(a)
   end
 
   _mobs.head = (_mobs.head % #_mobs) + 1
+end
+
+function remove_mob(a)
+  del(_mobs, a)
 end
 
 --[[
@@ -115,6 +126,7 @@ function create_player(args)
   ret._btnp[3] = move_entity(3)
   ret._btnp[4] = function() return {} end
   ret._btnp[5] = function() return {} end
+  ret._interact = player_interact
 
   return ret
 end
@@ -131,13 +143,43 @@ function update_player(a)
     end
   end
 
-  -- handle turn
-  if (next_state.pos != nil) and (next_state.pos[1] != a.pos[1] or next_state.pos[2] != a.pos[2]) then
-    printh("player passing")
-    acted = true
-    pass(a)
+  if next_state.pos != nil then
+    for hdl in all(enemies) do
+      local e = get_agent(hdl)
+      local d = l1_distance(next_state.pos, e.pos)
+      printh(hdl..' d='..d)
+      if d < 1 then
+        a._interact(a, e)
+        acted = true
+      end
+    end
+
+    -- handle turn
+    if (next_state.pos[1] != a.pos[1] or next_state.pos[2] != a.pos[2]) then
+      printh("player passing")
+      acted = true
+    end
   end
+
+  if (acted) pass(a)
   a = merge_tables(a, next_state)
+end
+
+--[[
+ Runs on agents when the player moves into the space.
+]]
+function player_interact(player, other)
+  -- become the enemy!
+  player.ani = other.ani
+  player.rate = other.rate
+  player.f = 1
+  remove_agent(other.name)
+  remove_mob(other)
+end
+
+function draw_player(a)
+  rectfill(a.pos[1] * 8, a.pos[2] * 8, a.pos[1] * 8 + 8, a.pos[2] * 8 + 8, 7)
+  draw_mob(a)
 end
 
 function draw_mob(a)
@@ -182,17 +224,22 @@ end
 function update_slime(a)
   if (not active(a)) return
 
-  local d = distances(get_agent(p_hdl).pos)
-  local next_pos = a.pos
-  local best_dist = d[next_pos[1] * 16 + next_pos[2]]
-  for v in all(neighbors4(a.pos)) do
-    dv = d[v[1] * 16 + v[2]]
-    if dv < best_dist then
-      next_pos = v
-      best_dist = dv
+
+  local _player_pos = get_agent(p_hdl).pos
+
+  if l1_distance(a.pos, _player_pos) < 5 then
+    local d = distances(_player_pos)
+    local next_pos = a.pos
+    local best_dist = d[next_pos[1] * 16 + next_pos[2]]
+    for v in all(neighbors4(a.pos)) do
+      dv = d[v[1] * 16 + v[2]]
+      if dv < best_dist then
+        next_pos = v
+        best_dist = dv
+      end
     end
+    a.pos = next_pos
   end
-  a.pos = next_pos
   printh(a.pos[1]..','..a.pos[2])
 
   pass(a)
@@ -276,6 +323,14 @@ function merge_tables(base, other)
   end
   return base
 end
+
+--[[
+ Implements manhattan distance
+]]
+function l1_distance(pos1, pos2)
+  return abs(pos2[1] - pos1[1]) + abs(pos2[2] - pos1[2])
+end
+
 __gfx__
 00000000000000000000000000000000000000000000000075000077777777777555557775555577777755777705707777077077000000000000000000000000
 00000000000000000000000000000000000000000000000075057077777755557777757777777577777557777705705775057075000000000000000000000000
