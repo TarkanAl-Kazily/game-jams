@@ -133,22 +133,25 @@ end
   true if some interaction happened. in this case, player has been modified
 ]]
 function player_interact(player, pos)
-
   -- check for door at pos
   if get_flag_at(pos, DOOR) then
-    local door_state = mget(pos[1], pos[2])
+    -- saves the door state
+    player.ani = {mget(pos[1], pos[2])}
     mset(pos[1], pos[2], 0)
-    player.ani = {door_state}
     player.f = 1
     player.pos = pos
-    player.door_state = door_state
     for i=0,3 do
       player._btnp[i] = function(a)
-          player.door_state = ((player.door_state + 1) % 2) + 2
-          player.ani = {player.door_state}
+          player.ani = {((player.ani[1] + 1) % 2) + 2}
         end
     end
-    player._btnp[5] = create_player
+    -- respawns the door
+    player._btnp[5] = function(a)
+        mset(a.pos[1], a.pos[2], a.ani[1])
+        local new_player = create_player(a)
+        return new_player
+      end
+    player._interact = dont_interact
     return true
   end
 
@@ -160,10 +163,18 @@ function player_interact(player, pos)
       player.rate = e.rate
       player.f = 1
       player._btnp[5] = create_player
+      player._interact = dont_interact
       del(enemies_task, e)
       return true
     end
   end
+  return false
+end
+
+--[[
+ handles when the player is not a ghost
+]]
+function dont_interact(player, pos)
   return false
 end
 
