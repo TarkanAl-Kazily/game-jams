@@ -18,7 +18,7 @@ function _init()
   p_hdl = agents_lib_create(_s.game,
     "player",
     {create_player, update_player, draw_player},
-    {ani={16, 17, 16, 18}, rate=15, pos={1, 13}},
+    {pos={1, 13}},
     10)
 
   enemies_hdl = agents_lib_create(_s.game,
@@ -81,6 +81,8 @@ function create_player(args)
   local ret = create_mob(args)
 
   -- add additional state/functionality here
+  ret.ani = {16, 17, 16, 18}
+  ret.rate = 15
   ret._btnp = {}
   ret._btnp[0] = move_entity(0)
   ret._btnp[1] = move_entity(1)
@@ -125,14 +127,44 @@ function update_player(a)
 end
 
 --[[
- Runs on agents when the player moves into the space.
+ handles the player interaction when trying to move into a new position
+
+ returns:
+  true if some interaction happened. in this case, player has been modified
 ]]
-function player_interact(player, other)
+function player_interact(player, pos)
+
+  -- check for door at pos
+  if get_flag_at(pos, DOOR) then
+    local door_state = mget(pos[1], pos[2])
+    mset(pos[1], pos[2], 0)
+    player.ani = {door_state}
+    player.f = 1
+    player.pos = pos
+    player.door_state = door_state
+    for i=0,3 do
+      player._btnp[i] = function(a)
+          player.door_state = ((player.door_state + 1) % 2) + 2
+          player.ani = {player.door_state}
+        end
+    end
+    player._btnp[5] = create_player
+    return true
+  end
+
   -- become the enemy!
-  player.ani = other.ani
-  player.rate = other.rate
-  player.f = 1
-  del(enemies_task, other)
+  for e in all(enemies_task) do
+    if l1_distance(e.pos, pos) < 1 then
+      ret = true
+      player.ani = e.ani
+      player.rate = e.rate
+      player.f = 1
+      player._btnp[5] = create_player
+      del(enemies_task, e)
+      return true
+    end
+  end
+  return false
 end
 
 function draw_player(a)
@@ -160,8 +192,10 @@ function move_entity(dir)
   return function(a) 
     local ret = {mid(0, a.pos[1] + dx, 15), mid(0, a.pos[2] + dy, 15)}
 
-    -- handle collision
-    if get_flag_at(ret, SOLID) then
+    if a._interact != nil and a._interact(a, ret) then
+      return a
+    elseif get_flag_at(ret, SOLID) then
+      -- handle collision
       return a
     end
 
@@ -240,6 +274,7 @@ end
 
 -- sprite flag constants
 SOLID = 0
+DOOR = 1
 
 function create_map(args)
   local ret = {x=0, y=0, w=16, h=16}
@@ -250,6 +285,8 @@ function update_map(a)
 end
 
 function draw_map(a)
+  pal()
+  palt(12, true)
   map(a.x, a.y, 0, 0, a.w, a.h)
 end
 
