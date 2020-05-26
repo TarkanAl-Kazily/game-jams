@@ -289,8 +289,6 @@ function draw_enemies(a)
   for e in all(a) do
     e._draw(e)
   end
-  cursor(1, 1)
-  print(#enemies_task, 8)
 end
 
 -->8
