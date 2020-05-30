@@ -12,8 +12,12 @@ board = {}
 winner = 0
 winning_moves = nil
 
+-- ai settings
+ai = 1
+
 function _init()
 	board = new_board()
+  ai_mode = ai_random
 end
 
 function _update60()
@@ -107,15 +111,20 @@ function update_player(b)
 	p_x = mid(1, p_x, 3)
 	p_y = mid(1, p_y, 3)
 	
-	if (btnp(4) or btnp(5)) then
+  if (btnp(4) or btnp(5)) then
     local move = {p_x, p_y}
-		if is_legal(b, move) then
+    if is_legal(b, move) then
       new_b = make_move(b, move, player_id)
-			player_id = player_id % 2 + 1
-		else
-			sfx(0)		
-		end	
-	end
+      winner, winning_moves = evaluate_board(new_b)
+      if winner == 0 and ai == 1 then
+        new_b = ai_mode(new_b, player_id % 2 + 1)
+      else
+        player_id = player_id % 2 + 1
+      end
+    else
+      sfx(0)		
+    end	
+  end
   return new_b
 end
 
@@ -218,6 +227,24 @@ function _check_triple(b, moves)
     return 0
   end
   return ((v[1] == v[2]) and (v[1] == v[3])) and v[1] or 0
+end
+
+-->8
+-- ai
+
+function get_legal_moves(b)
+  local moves = get_moves(b)
+  for m in all(moves) do
+    if (not is_legal(b, m)) del(moves, m)
+  end
+  return moves
+end
+
+-- random
+function ai_random(b, ai_id)
+  local moves = get_legal_moves(b)
+  if (#moves == 0) return b
+  return make_move(b, rnd(moves), ai_id)
 end
 
 __gfx__
