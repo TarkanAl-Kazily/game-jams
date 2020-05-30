@@ -13,21 +13,33 @@ winner = 0
 winning_moves = nil
 
 -- ai settings
-ai = 1
+ai_delay = 30
+ai = 2
 
 function _init()
 	board = new_board()
-  ai_mode = ai_random
+  ai_mode = ai_alpha_beta
 end
 
 function _update60()
-	if (winner == 0)	board = update_player(board)
-	winner, winning_moves = evaluate_board(board)
+  if ai < 2 then
+    board = update_player(board)
+    winner, winning_moves = evaluate_board(board)
+  end
+  if ai == 2 then
+    if (t % ai_delay) == 1 then
+      board = ai_mode(board, 1)
+      winner, winning_moves = evaluate_board(board)
+    elseif (t % ai_delay) == 1 + (ai_delay \ 2) then
+      board = ai_mode(board, 2)
+      winner, winning_moves = evaluate_board(board)
+    end
+  end
+  t += 1
 end
 
 function _draw()
   cls(0)
-  t += 1
   if winner == 0 then
     draw_player()
   else
@@ -181,6 +193,7 @@ end
 
 -- applies the move by player, returning a new board
 function make_move(b, move, player)
+  if (move == nil) return b
   assert(is_legal(b, move))
   local new_b = copy(b)
   board_set(new_b, move, player)
@@ -232,19 +245,87 @@ end
 -->8
 -- ai
 
-function get_legal_moves(b)
+function get_legal_moves(b, shuffle)
   local moves = get_moves(b)
   for m in all(moves) do
     if (not is_legal(b, m)) del(moves, m)
+  end
+  if shuffle then
+    local _moves = moves
+    moves = {}
+    while #_moves > 0 do
+      add(moves, rnd(_moves))
+      del(_moves, moves[#moves])
+    end
   end
   return moves
 end
 
 -- random
 function ai_random(b, ai_id)
-  local moves = get_legal_moves(b)
-  if (#moves == 0) return b
+  local moves = get_legal_moves(b, false)
   return make_move(b, rnd(moves), ai_id)
+end
+
+i=0
+-- negamax search
+function ai_negamax(b, ai_id)
+  printh(i)
+  i += 1
+  local opponent, w, _m = (ai_id % 2 + 1), evaluate_board(b)
+  -- ai scoring heuristics
+  if w == ai_id then
+    return b, 1
+  elseif w == opponent then
+    return b, -1
+  elseif w == -1 then
+    return b, 0
+  end
+  local max_score, max_move, moves = -1000, nil, get_legal_moves(b, false)
+  for m in all(moves) do
+    local _b, score = ai_negamax(make_move(b, m, ai_id), opponent)
+    score *= -1
+    if score > max_score then
+      max_score = score
+      max_move = m
+    end
+  end
+  return make_move(b, max_move, ai_id), max_score
+end
+
+-- alpha beta pruning search
+function ai_alpha_beta(b, ai_id)
+  return _ai_alpha_beta(b, ai_id, 7, -10000, 10000)
+end
+
+function _ai_alpha_beta(b, ai_id, depth, alpha, beta)
+  local opponent, w, _m = (ai_id % 2 + 1), evaluate_board(b)
+  -- ai scoring heuristics
+  if w == ai_id then
+    return b, 1
+  elseif w == opponent then
+    return b, -1
+  elseif w == -1 then
+    return b, 0
+  end
+  if depth == 0 then
+    return b, 0
+  end
+
+  local max_score, max_move, moves = -1000, nil, get_legal_moves(b, true)
+  for m in all(moves) do
+    local _b, score = _ai_alpha_beta(make_move(b, m, ai_id), opponent, depth-1, -beta, -alpha)
+    score *= -1
+    if score > max_score then
+      max_score = score
+      max_move = m
+    end
+    alpha = max(alpha, max_score)
+    if alpha >= beta then
+      return make_move(b, max_move, ai_id), max_score
+    end
+  end
+  return make_move(b, max_move, ai_id), max_score
 end
 
 __gfx__
