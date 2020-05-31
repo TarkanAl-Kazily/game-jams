@@ -4,41 +4,101 @@ __lua__
 -- tic-tac-toe
 -- by tarkan al-kazily
 
--- constants
-div=128/3
-
--- flat 3x3 board
-board = {}
-winner = 0
-winning_moves = nil
-
--- ai settings
-ai_delay = 30
-ai = 2
-
 function _init()
-	board = new_board()
-  ai_mode = ai_alpha_beta
+  menu = {update=menu_update, draw=menu_draw}
+  game = {update=game_update, draw=game_draw}
+
+  state = menu
+
+  -- constants
+  div=128/3
+
+  -- menu modes
+  menu_item = 1
+
+  -- flat 3x3 board
+  board = {}
+  winner = 0
+  winning_moves = nil
+
+  -- ai settings
+  ai_delay = 30
+  ai = 0
+  ai_mode = 1
+  ai_modes = {
+    {ai_random, "random"},
+    {ai_negamax, "negamax"},
+    {ai_alpha_beta, "alpha beta"},
+  }
 end
 
 function _update60()
+  state.update()
+end
+
+function _draw()
+  state.draw()
+end
+
+function menu_update()
+  if (menu_item == 1) then
+    if (btnp(0)) ai = mid(0, ai + 1, 2)
+    if (btnp(1)) ai = mid(0, ai - 1, 2)
+  elseif (menu_item == 2) then
+    if (btnp(0)) ai_mode = mid(1, ai_mode - 1, #ai_modes)
+    if (btnp(1)) ai_mode = mid(1, ai_mode + 1, #ai_modes)
+  end
+
+  if (btnp(2)) menu_item = mid(1, menu_item - 1, ai > 0 and 2 or 1)
+  if (btnp(3)) menu_item = mid(1, menu_item + 1, ai > 0 and 2 or 1)
+
+  -- transition to game
+  if btnp(4) or btnp(5) then
+    game_init()
+    state = game
+  end
+end
+
+function menu_draw()
+  cls(0)
+  print("tic-tac-toe", 8)
+
+  print("number of players")
+  print(2 - ai)
+
+  if ai > 0 then
+    print("ai type")
+    print(ai_modes[ai_mode][2])
+  end
+
+  print("menu_item: "..menu_item)
+
+  print("press 🅾️/❎ to begin", 12)
+end
+
+-->8
+function game_init()
+	board = new_board()
+end
+
+function game_update()
   if ai < 2 then
     board = update_player(board)
     winner, winning_moves = evaluate_board(board)
   end
-  if ai == 2 then
+  if winner == 0 and ai == 2 then
     if (t % ai_delay) == 1 then
-      board = ai_mode(board, 1)
+      board = ai_modes[ai_mode][1](board, 1)
       winner, winning_moves = evaluate_board(board)
     elseif (t % ai_delay) == 1 + (ai_delay \ 2) then
-      board = ai_mode(board, 2)
+      board = ai_modes[ai_mode][1](board, 2)
       winner, winning_moves = evaluate_board(board)
     end
   end
   t += 1
 end
 
-function _draw()
+function game_draw()
   cls(0)
   if winner == 0 then
     draw_player()
@@ -129,7 +189,7 @@ function update_player(b)
       new_b = make_move(b, move, player_id)
       winner, winning_moves = evaluate_board(new_b)
       if winner == 0 and ai == 1 then
-        new_b = ai_mode(new_b, player_id % 2 + 1)
+        new_b = ai_modes[ai_mode][1](new_b, player_id % 2 + 1)
       else
         player_id = player_id % 2 + 1
       end
