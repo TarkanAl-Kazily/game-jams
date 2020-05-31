@@ -24,7 +24,7 @@ function _init()
   -- ai settings
   ai_delay = 30
   ai = 0
-  ai_mode = 1
+  ai_mode = 3
   ai_modes = {
     {ai_random, "random"},
     {ai_negamax, "negamax"},
@@ -79,6 +79,11 @@ end
 -->8
 function game_init()
 	board = new_board()
+  cur_ai_id = 1
+
+  -- current player
+  player_id = 1
+  p_x, p_y = 2,2
 end
 
 function game_update()
@@ -87,15 +92,13 @@ function game_update()
     winner, winning_moves = evaluate_board(board)
   end
   if winner == 0 and ai == 2 then
-    if (t % ai_delay) == 1 then
-      board = ai_modes[ai_mode][1](board, 1)
+    if (flr(60 * t()) % ai_delay) == 1 then
+      board = ai_modes[ai_mode][1](board, cur_ai_id)
       winner, winning_moves = evaluate_board(board)
-    elseif (t % ai_delay) == 1 + (ai_delay \ 2) then
-      board = ai_modes[ai_mode][1](board, 2)
-      winner, winning_moves = evaluate_board(board)
+
+      cur_ai_id = cur_ai_id % 2 + 1
     end
   end
-  t += 1
 end
 
 function game_draw()
@@ -166,11 +169,6 @@ end
 -->8
 -- player code
 
--- current player
-player_id = 1
-p_x, p_y = 2,2
-t = 0
-
 function update_player(b)
   local new_b = b
 
@@ -202,7 +200,7 @@ end
 
 function draw_player()
   local c = player_id == 1 and 8 or 12
-  if ((t \ 35) % 2 == 1) c = 0
+  if ((t() \ 0.75) % 2 == 1) c = 0
   rectfill((p_x-1)*div,(p_y-1)*div, p_x*div, p_y*div, c)
   rect((p_x-1)*div+2,(p_y-1)*div+2, p_x*div-2, p_y*div-2, 13)
 end
@@ -210,7 +208,7 @@ end
 
 function draw_winner()
   local c = (winner > 0) and 10 or 5
-  if (t \ 35) % 3 == 2 then
+  if (t() \ 0.5) % 3 == 2 then
     c = 0
   end
   if winner > 0 then
@@ -330,7 +328,6 @@ end
 i=0
 -- negamax search
 function ai_negamax(b, ai_id)
-  printh(i)
   i += 1
   local opponent, w, _m = (ai_id % 2 + 1), evaluate_board(b)
   -- ai scoring heuristics
@@ -355,10 +352,19 @@ end
 
 -- alpha beta pruning search
 function ai_alpha_beta(b, ai_id)
-  return _ai_alpha_beta(b, ai_id, 7, -10000, 10000)
+  if _ai_alpha_beta_cache == nil then
+    _ai_alpha_beta_cache = {}
+  end
+  return _ai_alpha_beta(b, ai_id, 9, -10000, 10000)
 end
 
 function _ai_alpha_beta(b, ai_id, depth, alpha, beta)
+  local hash = to_hash(pack(b, ai_id))
+  printh(hash)
+  local cached = _ai_alpha_beta_cache[hash]
+  if cached != nil then
+    return unpack(cached)
+  end
   local opponent, w, _m = (ai_id % 2 + 1), evaluate_board(b)
   -- ai scoring heuristics
   if w == ai_id then
@@ -385,7 +391,23 @@ function _ai_alpha_beta(b, ai_id, depth, alpha, beta)
       return make_move(b, max_move, ai_id), max_score
     end
   end
-  return make_move(b, max_move, ai_id), max_score
+  local cached = pack(make_move(b, max_move, ai_id), max_score)
+  _ai_alpha_beta_cache[to_hash(b, ai_id)] = cached
+  return unpack(cached)
+end
+
+function to_hash(args)
+  local hash = ""
+  for v in all(args) do
+    local _type = sub(type(v), 1, 2)
+    hash = hash.._type
+    if _type == "ta" then
+      hash = hash..to_hash(v)
+    else
+      hash = hash..tostr(v)
+    end
+  end
+  return hash
 end
 
 __gfx__
