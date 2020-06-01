@@ -12,24 +12,23 @@ function _init()
 
   -- constants
   div=128/3
+  ai_delay = 0.5
+  reset_delay = 2.0
 
   -- menu modes
   menu_item = 1
 
-  -- flat 3x3 board
-  board = {}
-  winner = 0
-  winning_moves = nil
-
   -- ai settings
-  ai_delay = 30
-  ai = 0
-  ai_mode = 3
+  ai = 1
+  ai_1_mode = 2
+  ai_2_mode = 3
   ai_modes = {
     {ai_random, "random"},
+    {ai_minimax, "minimax"},
     {ai_negamax, "negamax"},
     {ai_alpha_beta, "alpha beta"},
   }
+  player_first = true
 end
 
 function _update60()
@@ -45,12 +44,17 @@ function menu_update()
     if (btnp(0)) ai = mid(0, ai + 1, 2)
     if (btnp(1)) ai = mid(0, ai - 1, 2)
   elseif (menu_item == 2) then
-    if (btnp(0)) ai_mode = mid(1, ai_mode - 1, #ai_modes)
-    if (btnp(1)) ai_mode = mid(1, ai_mode + 1, #ai_modes)
+    if (btnp(0)) ai_1_mode = mid(1, ai_1_mode - 1, #ai_modes)
+    if (btnp(1)) ai_1_mode = mid(1, ai_1_mode + 1, #ai_modes)
+  elseif (menu_item == 3) and (ai == 2) then
+    if (btnp(0)) ai_2_mode = mid(1, ai_2_mode - 1, #ai_modes)
+    if (btnp(1)) ai_2_mode = mid(1, ai_2_mode + 1, #ai_modes)
+  elseif (menu_item == 3) and (ai == 1) then
+    if (btnp(0) or btnp(1)) player_first = not player_first
   end
 
-  if (btnp(2)) menu_item = mid(1, menu_item - 1, ai > 0 and 2 or 1)
-  if (btnp(3)) menu_item = mid(1, menu_item + 1, ai > 0 and 2 or 1)
+  if (btnp(2)) menu_item = mid(1, menu_item - 1, ai >= 1 and 3 or 1)
+  if (btnp(3)) menu_item = mid(1, menu_item + 1, ai >= 1 and 3 or 1)
 
   -- transition to game
   if btnp(4) or btnp(5) then
@@ -66,9 +70,18 @@ function menu_draw()
   print("number of players")
   print(2 - ai)
 
-  if ai > 0 then
-    print("ai type")
-    print(ai_modes[ai_mode][2])
+  if ai >= 1 then
+    print("ai 1 type")
+    print(ai_modes[ai_1_mode][2])
+  end
+  if ai == 1 and player_first then
+    print("player goes first")
+  elseif ai == 1 and not player_first then
+    print("player goes second")
+  end
+  if ai >= 2 then
+    print("ai 2 type")
+    print(ai_modes[ai_2_mode][2])
   end
 
   print("menu_item: "..menu_item)
@@ -78,25 +91,51 @@ end
 
 -->8
 function game_init()
-	board = new_board()
   cur_ai_id = 1
+
+  -- flat 3x3 board
+  winner = 0
+  winning_moves = nil
 
   -- current player
   player_id = 1
   p_x, p_y = 2,2
+  last_t = 0
+
+	board = new_board()
+
+  if ai == 1 and not player_first then
+    player_id = 2
+    board = ai_modes[ai_1_mode][1](board, 1)
+  end
 end
 
 function game_update()
+  local just_ended = (winner == 0)
   if ai < 2 then
     board = update_player(board)
     winner, winning_moves = evaluate_board(board)
   end
   if winner == 0 and ai == 2 then
-    if (flr(60 * t()) % ai_delay) == 1 then
+    if t() - last_t > ai_delay then
+      last_t = t()
+
+      ai_mode = (cur_ai_id == 1) and ai_1_mode or ai_2_mode
       board = ai_modes[ai_mode][1](board, cur_ai_id)
       winner, winning_moves = evaluate_board(board)
 
       cur_ai_id = cur_ai_id % 2 + 1
+    end
+  end
+
+  if winner != 0 then
+    if just_ended then
+      game_end = t()
+    end
+    if t() - game_end > reset_delay then
+      ai_delay = max(0.001, ai_delay * 0.6)
+      reset_delay = max(0.01, reset_delay * 0.6)
+      game_init()
     end
   end
 end
@@ -146,6 +185,13 @@ function board_set(b, square, p)
  b[3*(x-1)+y] = p
 end
 
+function board_is_empty(b)
+  for v in all(b) do
+    if (v != 0) return false
+  end
+  return true
+end
+
 -- draws the board b on the screen
 function draw_board(b)
  rect(div, -10, 2*div, 138, 1)
@@ -187,7 +233,7 @@ function update_player(b)
       new_b = make_move(b, move, player_id)
       winner, winning_moves = evaluate_board(new_b)
       if winner == 0 and ai == 1 then
-        new_b = ai_modes[ai_mode][1](new_b, player_id % 2 + 1)
+        new_b = ai_modes[ai_1_mode][1](new_b, player_id % 2 + 1)
       else
         player_id = player_id % 2 + 1
       end
@@ -233,8 +279,11 @@ functions for ai and general turn based functionality
 
 -- returns all moves associated with a board
 function get_moves(b)
+  if board_is_empty(b) then
+    return {{1,1}, {1, 2}, {2, 2}}
+  end
+  
   local result = {}
-
   for x=1,3 do
     for y=1,3 do
       add(result, {x, y})
@@ -325,46 +374,81 @@ function ai_random(b, ai_id)
   return make_move(b, rnd(moves), ai_id)
 end
 
-i=0
--- negamax search
-function ai_negamax(b, ai_id)
-  i += 1
-  local opponent, w, _m = (ai_id % 2 + 1), evaluate_board(b)
-  -- ai scoring heuristics
-  if w == ai_id then
+function ai_minimax(b, ai_id)
+  return _ai_minimax(b, ai_id, true)
+end
+
+function _ai_minimax(b, maximizing_id, maximize)
+  local opponent, w, _m = (maximizing_id % 2 + 1), evaluate_board(b)
+  -- check for winners
+  if w == maximizing_id then
     return b, 1
-  elseif w == opponent then
+  end
+  if w == opponent then
     return b, -1
-  elseif w == -1 then
+  end
+  if w == -1 then
     return b, 0
   end
-  local max_score, max_move, moves = -1000, nil, get_legal_moves(b, false)
+
+  local moves, best_board = get_legal_moves(b, false), b
+  if maximize then
+    local best_value = -10
+    for m in all(moves) do
+      local m_b = make_move(b, m, maximizing_id)
+      local _, m_v = _ai_minimax(m_b, maximizing_id, false)
+      if best_value < m_v then
+        best_value = m_v
+        best_board = m_b
+      end
+    end
+    return best_board, best_value
+  else
+    local best_value = 10
+    for m in all(moves) do
+      local m_b = make_move(b, m, opponent)
+      local _, m_v = _ai_minimax(m_b, maximizing_id, true)
+      if best_value > m_v then
+        best_value = m_v
+        best_board = m_b
+      end
+    end
+    return best_board, best_value
+  end
+end
+
+-- negamax search
+function ai_negamax(b, ai_id)
+  local opponent, w, _m = (current_id % 2 + 1), evaluate_board(b)
+  -- check for winners
+  if w == current_id then
+    return b, 1
+  end
+  if w == opponent then
+    return b, -1
+  end
+  if w == -1 then
+    return b, 0
+  end
+
+  local moves, best_value, best_board = get_legal_moves(b, false), -10, b
   for m in all(moves) do
-    local _b, score = ai_negamax(make_move(b, m, ai_id), opponent)
-    score *= -1
-    if score > max_score then
-      max_score = score
-      max_move = m
+    local m_b = make_move(b, m, current_id)
+    local _, m_v = ai_negamax(m_b, opponent)
+    if -m_v > best_value then
+      best_value = -m_v
+      best_board = m_b
     end
   end
-  return make_move(b, max_move, ai_id), max_score
+  return best_board, best_value
 end
 
 -- alpha beta pruning search
 function ai_alpha_beta(b, ai_id)
-  if _ai_alpha_beta_cache == nil then
-    _ai_alpha_beta_cache = {}
-  end
-  return _ai_alpha_beta(b, ai_id, 9, -10000, 10000)
+  return _ai_alpha_beta(b, ai_id, -10, 10)
 end
 
-function _ai_alpha_beta(b, ai_id, depth, alpha, beta)
-  local hash = to_hash(pack(b, ai_id))
-  printh(hash)
-  local cached = _ai_alpha_beta_cache[hash]
-  if cached != nil then
-    return unpack(cached)
-  end
+function _ai_alpha_beta(b, ai_id, alpha, beta)
   local opponent, w, _m = (ai_id % 2 + 1), evaluate_board(b)
   -- ai scoring heuristics
   if w == ai_id then
@@ -374,26 +458,21 @@ function _ai_alpha_beta(b, ai_id, depth, alpha, beta)
   elseif w == -1 then
     return b, 0
   end
-  if depth == 0 then
-    return b, 0
-  end
 
-  local max_score, max_move, moves = -1000, nil, get_legal_moves(b, true)
+  local moves, best_value, best_board = get_legal_moves(b, true), -100, b
   for m in all(moves) do
-    local _b, score = _ai_alpha_beta(make_move(b, m, ai_id), opponent, depth-1, -beta, -alpha)
-    score *= -1
-    if score > max_score then
-      max_score = score
-      max_move = m
+    local m_b = make_move(b, m, ai_id)
+    local _, m_v = _ai_alpha_beta(m_b, opponent, -beta, -alpha)
+    if -m_v > best_value then
+      best_value = -m_v
+      best_board = m_b
     end
-    alpha = max(alpha, max_score)
+    alpha = max(alpha, best_value)
     if alpha >= beta then
-      return make_move(b, max_move, ai_id), max_score
+      return best_board, best_value
     end
   end
-  local cached = pack(make_move(b, max_move, ai_id), max_score)
-  _ai_alpha_beta_cache[to_hash(b, ai_id)] = cached
-  return unpack(cached)
+  return best_board, best_value
 end
 
 function to_hash(args)
