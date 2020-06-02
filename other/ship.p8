@@ -4,10 +4,11 @@ __lua__
 -- ship game
 
 #include model.lua
+#include ship_mesh.lua
 
 function _init()
-  cam_x, cam_y, cam_z = 0, 0, -60
-  cam_roll, cam_pitch, cam_yaw = 0.0, 0.0, 0.0
+  cam_x, cam_y, cam_z = 0, -30, 10
+  cam_roll, cam_pitch, cam_yaw = 0.75, 0.75, 0.25
   -- ply format
   mesh1 = {
     {
@@ -63,7 +64,7 @@ function _init()
     }
   }
   mesh_id = 1
-  meshes = {mesh1, mesh2, tutorial}
+  meshes = {mesh1, mesh2, ship, tutorial}
 
   cam = {
     {cam_x, cam_y, cam_z}, {cam_roll, cam_pitch, cam_yaw}
@@ -169,7 +170,7 @@ function draw_mesh(cam, mesh)
     local x0, y0, z0 = unpack(px0)
     local x1, y1, z1 = unpack(px1)
     local x2, y2, z2 = unpack(px2)
-    local key, visible = sqr_norm(vec_avg({p0, p1, p2})), (all_between(-16, 144, {x0, x1, x2, y0, y1, y2}) and all_between(0, 127, {z0, z1, z2}))
+    local key, visible = sqr_norm(vec_avg({p0, p1, p2})), (all_between(-16, 144, {x0, x1, x2, y0, y1, y2}) and all_between(0, 100, {z0, z1, z2}))
     if (visible) then
       add(_fproj, {key, x0, y0, x1, y1, x2, y2, c, i})
       --if (c == 16) c = 2 else c = c + 1
