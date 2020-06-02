@@ -3,8 +3,11 @@ version 27
 __lua__
 -- ship game
 
+#include model.lua
+
 function _init()
-  cam_x, cam_y = 10, 10
+  cam_x, cam_y, cam_z = 0, 0, -60
+  cam_roll, cam_pitch, cam_yaw = 0.0, 0.0, 0.0
   -- ply format
   mesh1 = {
     {
@@ -60,30 +63,67 @@ function _init()
     }
   }
   mesh_id = 1
-  meshes = {mesh1, mesh2}
+  meshes = {mesh1, mesh2, tutorial}
 
   cam = {
-    {cam_x, cam_y, 0}, {0, 0, 0}
+    {cam_x, cam_y, cam_z}, {cam_roll, cam_pitch, cam_yaw}
   }
 
+  world2cam = inverse_transform(cam)
+
+  menuitem(1, "next mesh", function() mesh_id = mesh_id % #meshes + 1 end)
 end
 
 function _update60()
-  if (btn(0)) cam_x -= 1
-  if (btn(1)) cam_x += 1
-  if (btn(2)) cam_y -= 1
-  if (btn(3)) cam_y += 1
-  if (btnp(4)) mesh_id = mesh_id % #meshes + 1
+  if (btn(0, 0)) cam_x -= 1
+  if (btn(1, 0)) cam_x += 1
+  if (btn(2, 0)) cam_y -= 1
+  if (btn(3, 0)) cam_y += 1
+  if (btn(4, 0)) cam_z -= 1
+  if (btn(5, 0)) cam_z += 1
+  --if (btnp(4)) mesh_id = mesh_id % #meshes + 1
+  if (btn(0, 1)) cam_roll -= 0.005
+  if (btn(1, 1)) cam_roll += 0.005
+  if (btn(2, 1)) cam_pitch -= 0.005
+  if (btn(3, 1)) cam_pitch += 0.005
+  if (btn(4, 1)) cam_yaw -= 0.005
+  if (btn(5, 1)) cam_yaw += 0.005
+
+
+  while cam_roll > 1 do
+    cam_roll -= 1.0
+  end
+  while cam_roll < 0 do
+    cam_roll += 1.0
+  end
+
+  while cam_pitch > 1 do
+    cam_pitch -= 1.0
+  end
+  while cam_pitch < 0 do
+    cam_pitch += 1.0
+  end
+  while cam_yaw > 1 do
+    cam_yaw -= 1.0
+  end
+  while cam_yaw < 0 do
+    cam_yaw += 1.0
+  end
+
   cam = {
-    {-cam_x, -cam_y, 0}, {0, 0, 0}
+    {cam_x, cam_y, cam_z}, {cam_roll, cam_pitch, cam_yaw}
   }
+  world2cam = inverse_transform(cam)
 end
 
 function _draw()
   cls(0)
-  draw_mesh(cam, meshes[mesh_id])
+  draw_mesh(world2cam, meshes[mesh_id])
   print(cam_x)
   print(cam_y)
+  print(cam_roll)
+  print(cam_pitch)
+  print(cam_yaw)
 end
 
 -->8
@@ -95,16 +135,19 @@ function draw_mesh(cam, mesh)
   for v in all(_vertices) do
     add(_vproj, project_point(cam, v))
   end
-  local c = 0
+  local c = 2
   for f in all(_faces) do
-    local x0, y0, z0, d0 = unpack(_vproj[f[1]])
-    local x1, y1, z1, d1 = unpack(_vproj[f[2]])
-    local x2, y2, z2, d2 = unpack(_vproj[f[3]])
-    local key, visible = (d0 + d1 + d2) / 3, min(z0, min(z1, z2)) > 0
-    --local key, visible = sqr_norm({0.1 * ((x0 + x1 + x2) / 3 - 64), 0.1 * ((y0 + y1 + y2) / 3 - 64), (z0 + z1 + z2) / 3}), min(z0, min(z1, z2)) > 0
+    local px0, p0 = unpack(_vproj[f[1]])
+    local px1, p1 = unpack(_vproj[f[2]])
+    local px2, p2 = unpack(_vproj[f[3]])
+    if (#f > 3) c = f[4]
+    local x0, y0, z0 = unpack(px0)
+    local x1, y1, z1 = unpack(px1)
+    local x2, y2, z2 = unpack(px2)
+    local key, visible = sqr_norm(vec_avg({p0, p1, p2})), (all_between(-16, 144, {x0, x1, x2, y0, y1, y2}) and all_between(0, 127, {z0, z1, z2}))
     if (visible) then
-      add(_fproj, {key, x0, y0, x1, y1, x2, y2, c + 2})
-      c = (c + 1) % 14
+      add(_fproj, {key, x0, y0, x1, y1, x2, y2, c})
+      if (c == 16) c = 2 else c = c + 1
     end
   end
 
@@ -116,10 +159,18 @@ function draw_mesh(cam, mesh)
   end
 end
 
-function project_point(cam, pt3d)
-  local _t, _r = cam[1], cam[2]
+function project_point(transform, pt3d)
+  local _t, _r = unpack(transform)
   local x, y, z = unpack(translate(_t, rotate(_r, pt3d)))
-  return {64 * x / z + 64, 64 * y / z + 64, 64 / z, sqr_norm({x, y, z})}
+  return {{64 * x / z + 64, 64 * y / z + 64, 64 / z}, {x, y, z}}
+end
+
+function all_between(lower, upper, vals)
+  local _min, _max = vals[1], vals[1]
+  for i=2,#vals do
+    _min, _max = min(_min, vals[i]), max(_max, vals[i])
+  end
+  return (lower <= _min and _max <= upper)
 end
 
 function sqr_norm(vec)
@@ -130,12 +181,45 @@ function sqr_norm(vec)
   return result
 end
 
+function inverse_transform(t_r)
+  local _t, _r = unpack(t_r)
+  local inv_r = {-_r[3], -_r[2], -_r[1]}
+  local inv_t = rotate(inv_r, _t)
+  inv_t[1], inv_t[2], inv_t[3] = -inv_t[1], -inv_t[2], -inv_t[3]
+  return {inv_t, inv_r}
+end
+
 function rotate(r, pt3d)
-  return pt3d
+  local _a, _b, _c = unpack(r)
+
+  return rotate_z(_a, rotate_y(_b, rotate_z(_c, pt3d)))
+end
+
+function rotate_z(theta, pt3d)
+  local x, y, z = unpack(pt3d)
+  return {cos(theta) * x - sin(theta) * y, sin(theta) * x + cos(theta) * y, z}
+end
+
+function rotate_y(theta, pt3d)
+  local x, y, z = unpack(pt3d)
+  return {cos(theta) * x + sin(theta) * z, y, -sin(theta) * x + cos(theta) * z}
 end
 
 function translate(t, pt3d)
   return {pt3d[1] + t[1], pt3d[2] + t[2], pt3d[3] + t[3]}
+end
+
+function vec_avg(pts)
+  local result, n = {}, #pts
+  for j=1,#pts[1] do
+    add(result, pts[1][j] / n)
+  end
+  for i=2,n do
+    for j=1,#result do
+      result[j] += pts[i][j] / n
+    end
+  end
+  return result
 end
 
 -- sorts list of tables in decreasing order based on first element of each entry
