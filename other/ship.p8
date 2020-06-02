@@ -71,56 +71,79 @@ function _init()
 
   world2cam = inverse_transform(cam)
 
+  control_toggle = false
+  edit_colors = false
+  face_id = 1
+  current_color = 8
+  num_faces = #meshes[mesh_id][2]
+
   menuitem(1, "next mesh", function() mesh_id = mesh_id % #meshes + 1 end)
+  menuitem(2, "edit colors", function() edit_colors = (not edit_colors) end)
 end
 
 function _update60()
-  if (btn(0, 0)) cam_x -= 1
-  if (btn(1, 0)) cam_x += 1
-  if (btn(2, 0)) cam_y -= 1
-  if (btn(3, 0)) cam_y += 1
-  if (btn(4, 0)) cam_z -= 1
-  if (btn(5, 0)) cam_z += 1
-  --if (btnp(4)) mesh_id = mesh_id % #meshes + 1
-  if (btn(0, 1)) cam_roll -= 0.005
-  if (btn(1, 1)) cam_roll += 0.005
-  if (btn(2, 1)) cam_pitch -= 0.005
-  if (btn(3, 1)) cam_pitch += 0.005
-  if (btn(4, 1)) cam_yaw -= 0.005
-  if (btn(5, 1)) cam_yaw += 0.005
+  if not edit_colors then
+    if (btn(0, 0)) cam_x -= 1
+    if (btn(1, 0)) cam_x += 1
+    if (btn(2, 0)) cam_y -= 1
+    if (btn(3, 0)) cam_y += 1
+    if (btn(4, 0)) cam_z -= 1
+    if (btn(5, 0)) cam_z += 1
+    --if (btnp(4)) mesh_id = mesh_id % #meshes + 1
+    if (btn(0, 1)) cam_roll -= 0.005
+    if (btn(1, 1)) cam_roll += 0.005
+    if (btn(2, 1)) cam_pitch -= 0.005
+    if (btn(3, 1)) cam_pitch += 0.005
+    if (btn(4, 1)) cam_yaw -= 0.005
+    if (btn(5, 1)) cam_yaw += 0.005
 
 
-  while cam_roll > 1 do
-    cam_roll -= 1.0
-  end
-  while cam_roll < 0 do
-    cam_roll += 1.0
-  end
+    while cam_roll > 1 do
+      cam_roll -= 1.0
+    end
+    while cam_roll < 0 do
+      cam_roll += 1.0
+    end
 
-  while cam_pitch > 1 do
-    cam_pitch -= 1.0
-  end
-  while cam_pitch < 0 do
-    cam_pitch += 1.0
-  end
-  while cam_yaw > 1 do
-    cam_yaw -= 1.0
-  end
-  while cam_yaw < 0 do
-    cam_yaw += 1.0
-  end
+    while cam_pitch > 1 do
+      cam_pitch -= 1.0
+    end
+    while cam_pitch < 0 do
+      cam_pitch += 1.0
+    end
+    while cam_yaw > 1 do
+      cam_yaw -= 1.0
+    end
+    while cam_yaw < 0 do
+      cam_yaw += 1.0
+    end
 
-  cam = {
-    {cam_x, cam_y, cam_z}, {cam_roll, cam_pitch, cam_yaw}
-  }
-  world2cam = inverse_transform(cam)
+    cam = {
+      {cam_x, cam_y, cam_z}, {cam_roll, cam_pitch, cam_yaw}
+    }
+    world2cam = inverse_transform(cam)
+  else
+    num_faces = #meshes[mesh_id][2]
+    if (face_id > num_faces) face_id = 1
+    if (btnp(0, 0)) face_id = face_id - 1
+    if (btnp(1, 0)) face_id = face_id % num_faces + 1
+    if (face_id == 0) face_id = num_faces
+    if (btnp(4, 0)) then
+      current_color = (current_color) % 15 + 1
+    end
+    if (btnp(5, 0)) then
+      set_face_color(meshes[mesh_id], face_id, current_color)
+    end 
+  end
 end
 
 function _draw()
   cls(0)
   draw_mesh(world2cam, meshes[mesh_id])
+  color(current_color)
   print(cam_x)
   print(cam_y)
+  print(cam_z)
   print(cam_roll)
   print(cam_pitch)
   print(cam_yaw)
@@ -132,30 +155,32 @@ end
 function draw_mesh(cam, mesh)
   local _vertices, _faces = mesh[1], mesh[2]
   local _vproj, _fproj = {}, {}
-  for v in all(_vertices) do
+  for i = 1,#_vertices do
+    local v = _vertices[i]
     add(_vproj, project_point(cam, v))
   end
-  local c = 2
-  for f in all(_faces) do
+  for i=1,#_faces do
+    local f = _faces[i]
     local px0, p0 = unpack(_vproj[f[1]])
     local px1, p1 = unpack(_vproj[f[2]])
     local px2, p2 = unpack(_vproj[f[3]])
+    local c = 2
     if (#f > 3) c = f[4]
     local x0, y0, z0 = unpack(px0)
     local x1, y1, z1 = unpack(px1)
     local x2, y2, z2 = unpack(px2)
     local key, visible = sqr_norm(vec_avg({p0, p1, p2})), (all_between(-16, 144, {x0, x1, x2, y0, y1, y2}) and all_between(0, 127, {z0, z1, z2}))
     if (visible) then
-      add(_fproj, {key, x0, y0, x1, y1, x2, y2, c})
-      if (c == 16) c = 2 else c = c + 1
+      add(_fproj, {key, x0, y0, x1, y1, x2, y2, c, i})
+      --if (c == 16) c = 2 else c = c + 1
     end
   end
 
   sort(_fproj)
 
-  for f in all(_fproj) do
-    local _, x0, y0, x1, y1, x2, y2, c = unpack(f)
-    triangle_fill(x0, y0, x1, y1, x2, y2, c, 1)
+  for i=1,#_fproj do
+    local _, x0, y0, x1, y1, x2, y2, c, id = unpack(_fproj[i])
+    triangle_fill(x0, y0, x1, y1, x2, y2, c, (id == face_id) and 8 or 1)
   end
 end
 
@@ -233,6 +258,15 @@ function sort(l)
         unsorted = true
       end
     end
+  end
+end
+
+function set_face_color(mesh, face_id, c)
+  local _, _faces = unpack(mesh)
+  if #_faces[face_id] < 4 then
+    add(_faces[face_id], c)
+  else
+    _faces[face_id][4] = c
   end
 end
 
