@@ -1,19 +1,23 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- Space Clicker v0_3
+-- Space Clicker v0_4
 -- Tarkan Al-Kazily
 
 _delta_t = 1.0 / 60.0
 time = 0.0
 score = 0
 entities = {}
+camera_pos = {x=0, y=0}
+world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
+background = nil
+seed_background = 42
 
 function create_entity(x, y)
   local result = {}
   result.pos = {x=x, y=y}
-  result.vel = {cur=0.0, max=20.0, friction=1.0}
-  result.acc = {cur=0.0, max=4.0, timer=0, friction=6.0}
+  result.vel = {cur=0.0, max=30.0, friction=1.0}
+  result.acc = {cur=0.0, max=5.0, timer=0, friction=6.0}
   result.dir = {cur=0.0} -- starts facing positive x
   result.dir_vel = {cur=0.0, max=0.25, friction=2.0}
   result.dir_acc = {cur=0.0, max=1.0, timer=0, friction=2.0}
@@ -32,6 +36,7 @@ function create_zone(x, y, r, p)
 end
 
 function _init()
+  background = generate_background()
   player = create_entity(5, 5)
   add(entities, player)
   earth = create_zone(64, 64, 30, 1)
@@ -42,19 +47,24 @@ function _update60()
   time += _delta_t
   update_player()
   update_entities()
+  update_camera()
 end
 
 function _draw()
   cls()
-  pset(0, 0, 12)
-  pset(127, 0, 12)
-  pset(127, 127, 12)
-  pset(0, 127, 12)
+  line(-128, -128, -128, 255, 1)
+  line(255, 255)
+  line(255, -128)
+  line(-128, -128)
+
+  draw_background()
+
+  camera(camera_pos.x, camera_pos.y)
 
   -- the cookie
   foreach(entities, draw_zone)
 
-  print("[ score : "..score.." ]", 2)
+  print("[ score : "..score.." ]", camera_pos.x, camera_pos.y, 2)
   -- debug
   if _debug then
     print("pos ".. player.pos.x ..", "..player.pos.y)
@@ -73,6 +83,36 @@ end
 function draw_zone(e)
   if e.zone != nil then
     circfill(e.pos.x, e.pos.y, e.zone.radius, e.zone.color)
+  end
+end
+
+function generate_background()
+  srand(seed_background)
+  local result = {}
+  for i=1,128 do
+    local star = {x=rnd_between(world_bounds.min.x, world_bounds.max.x), y=rnd_between(world_bounds.min.y, world_bounds.max.y), c=flr(rnd(3)), t=flr(rnd(4))}
+    if star.c == 0 then
+      star.c = 7
+    elseif star.c == 1 then
+      star.c = 9
+    else
+      star.c = 10
+    end
+    add(result, star)
+  end
+  return result
+end
+
+function draw_background()
+  foreach(background, draw_star)
+end
+
+function draw_star(s)
+  if s.t > 2 then
+    line(s.x-1,s.y, s.x+1, s.y, s.c)
+    line(s.x,s.y-1, s.x, s.y+1, s.c)
+  else
+    pset(s.x, s.y, s.c)
   end
 end
 
@@ -97,6 +137,25 @@ function update_player()
   if btn(4) then
     foreach(entities, player_interact)
   end
+end
+
+-- moves the camera to try and center the player
+function update_camera()
+  local dx, dy = player.pos.x - camera_pos.x, player.pos.y - camera_pos.y
+  if dx < 28 then
+    camera_pos.x -= 1.0
+  elseif dx > 100 then
+    camera_pos.x += 1.0
+  end
+
+  if dy < 28 then
+    camera_pos.y -= 1.0
+  elseif dy > 100 then
+    camera_pos.y += 1.0
+  end
+
+  camera_pos.x = mid(world_bounds.min.x, camera_pos.x, world_bounds.max.x - 128)
+  camera_pos.y = mid(world_bounds.min.y, camera_pos.y, world_bounds.max.y - 128)
 end
 
 -- updates all entities
@@ -162,17 +221,6 @@ function draw_player()
   line(p1.x, p1.y)
 end
 
--- special euclidean transformation on a point
--- rotated first, then translated
-function se2(point, translation, rotation)
-  local result = {x=0, y=0}
-  result.x = point.x * cos(rotation) - point.y * sin(rotation)
-  result.y = point.x * sin(rotation) + point.y * cos(rotation)
-  result.x += translation.x
-  result.y += translation.y
-  return result
-end
-
 -- Player interacts with the given zone
 function player_interact(e)
   if e.zone == nil then 
@@ -189,9 +237,27 @@ function player_interact(e)
   end
 end
 
+-->8
+-- utils and math
+
+-- special euclidean transformation on a point
+-- rotated first, then translated
+function se2(point, translation, rotation)
+  local result = {x=0, y=0}
+  result.x = point.x * cos(rotation) - point.y * sin(rotation)
+  result.y = point.x * sin(rotation) + point.y * cos(rotation)
+  result.x += translation.x
+  result.y += translation.y
+  return result
+end
+
 function distance_squared(p1, p2)
   local dx, dy = p1.x - p2.x, p1.y - p2.y
   return dx * dx + dy * dy
+end
+
+function rnd_between(small, large)
+  return rnd(large - small) + small
 end
 
 __gfx__
