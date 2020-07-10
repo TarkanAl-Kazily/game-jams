@@ -1,12 +1,13 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- Space Clicker v0_5
+-- Space Clicker v0_6
 -- Tarkan Al-Kazily
 
 _delta_t = 1.0 / 60.0
 time = 0.0
 score = 0
+miner_count = 0
 entities = {}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
@@ -40,7 +41,10 @@ end
 function create_miner_zone(x, y, r, cost)
   local result = create_zone(x, y, r, 0)
   result.zone.color = 5
+  result.zone.miner_cost = cost
+  result.zone.miner_growth = 1.25
   result.zone.action = buy_miner
+  return result
 end
 
 function _init()
@@ -49,11 +53,14 @@ function _init()
   add(entities, player)
   earth = create_zone(64, 64, 30, 1)
   add(entities, earth)
+  mine = create_miner_zone(0, 0, 10, 20)
+  add(entities, mine)
 end
 
 function _update60()
   time += _delta_t
   update_player()
+  update_points()
   update_entities()
   update_camera()
 end
@@ -72,7 +79,8 @@ function _draw()
   -- the cookie
   foreach(entities, draw_zone)
 
-  print("[ score : "..score.." ]", camera_pos.x, camera_pos.y, 2)
+  print("[ score : "..flr(score).." ]", camera_pos.x, camera_pos.y, 2)
+  print("[ miners : "..miner_count.." ]", camera_pos.x, camera_pos.y + 6, 2)
   -- debug
   if _debug then
     print("pos ".. player.pos.x ..", "..player.pos.y)
@@ -212,6 +220,17 @@ function add_points(e)
   score += e.zone.points
 end
 
+function buy_miner(e)
+  if score > e.zone.miner_cost then
+    score -= e.zone.miner_cost
+    e.zone.miner_cost = flr(e.zone.miner_cost * e.zone.miner_growth)
+    miner_count += 1
+  end
+end
+
+function update_points()
+  score += miner_count * _delta_t * 1.0
+end
 
 -->8
 -- drawing code
