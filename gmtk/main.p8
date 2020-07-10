@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- Space Clicker v0_1
+-- Space Clicker v0_2
 -- Tarkan Al-Kazily
 
 _delta_t = 1.0 / 60.0
@@ -11,11 +11,11 @@ entities = {}
 function create_entity()
   local result = {}
   result.pos = {x=20, y=20}
-  result.acc = {cur=0.0, max=4.0, timer=0, friction=2.0}
-  result.vel = {cur=0.0, max=10.0, friction=2.0}
+  result.vel = {cur=0.0, max=15.0, friction=2.0}
+  result.acc = {cur=0.0, max=4.0, timer=0, friction=4.0}
   result.dir = {cur=0.0} -- starts facing positive x
-  result.dir_vel = {cur=0.0, max=1.0, friction=2.0}
-  result.acc_vel = {cur=0.0, max=2.0, timer=0, friction=2.0}
+  result.dir_vel = {cur=0.0, max=0.25, friction=2.0}
+  result.dir_acc = {cur=0.0, max=1.0, timer=0, friction=2.0}
   result.friction = 1.0
   return result
 end
@@ -46,6 +46,8 @@ function _draw()
   print("vel ".. player.vel.cur)
   print("acc ".. player.acc.cur)
   print("dir ".. player.dir.cur)
+  print("dir_vel ".. player.dir_vel.cur)
+  print("dir_acc ".. player.dir_acc.cur)
 
   -- draw player
   --pset(player.pos.x, player.pos.y, 8)
@@ -80,7 +82,23 @@ end
 -- updates an entity
 -- applies movement physics
 function update_entity(e)
-  e.dir.cur += _delta_t * e.dir_vel.cur
+  e.dir.cur = (e.dir.cur + _delta_t * e.dir_vel.cur) % 1.0
+
+  if abs(e.dir_acc.cur) > 0 then
+    e.dir_vel.cur = mid(-e.dir_vel.max, e.dir_vel.cur + e.dir_acc.cur * _delta_t, e.dir_vel.max)
+  else
+    local sign = 1
+    if e.dir_vel.cur < 0 then
+      sign = -1
+    end
+    e.dir_vel.cur = mid(0.0, e.dir_vel.cur + e.dir_vel.friction * _delta_t * -sign, e.dir_vel.cur)
+  end
+
+  e.dir_acc.timer = max(0, e.dir_acc.timer - 1)
+  if e.dir_acc.timer == 0 then
+    e.dir_acc.cur = 0
+  end
+
   e.pos.x, e.pos.y = e.pos.x + _delta_t * e.vel.cur * cos(e.dir.cur), e.pos.y + _delta_t * e.vel.cur * sin(e.dir.cur)
   if e.acc.cur > 0 then
     e.vel.cur = mid(0.0, e.vel.cur + _delta_t * e.acc.cur, e.vel.max)
