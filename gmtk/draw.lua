@@ -53,3 +53,27 @@ function draw_entity(e)
   end
 end
 
+function draw_miner_path()
+    if #miner_targets < 1 then
+        return
+    end
+
+    local tx, ty = miner_targets[1].state.q.x, miner_targets[1].state.q.y
+    -- draw the x in yellow
+    line(tx-1, ty-1, tx+1, ty+1, 10)
+    line(tx-1, ty+1, tx+1, ty-1, 10)
+    -- start the line in tan
+    line(tx, ty, tx, ty, 15)
+    for i = 2, #miner_targets do
+        tx, ty = miner_targets[i].state.q.x, miner_targets[i].state.q.y
+        -- draw the line in tan
+        line(tx, ty)
+
+        -- draw the x in yellow
+        line(tx-1, ty-1, tx+1, ty+1, 10)
+        line(tx-1, ty+1, tx+1, ty-1, 10)
+        line(tx, ty, tx, ty, 15)
+    end
+    tx, ty = miner_targets[1].state.q.x, miner_targets[1].state.q.y
+    line(tx, ty)
+end

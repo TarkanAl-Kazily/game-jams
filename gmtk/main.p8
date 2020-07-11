@@ -13,7 +13,7 @@ time = 0.0
 score = 0
 miner_count = 0
 entities = {}
-player_camera = {x=64, y=64}
+player_camera = {type="meta", state={q={x=64, y=64}}}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
 background = nil
@@ -29,24 +29,8 @@ function _init()
   player = new_player()
   player.state.q = {x=10, y=10, d=0}
   miner = new_miner()
-  earth = new_zone()
-  earth.state.q = {x=64, y=64, d=0}
-  add(entities, earth)
-  moon = new_zone()
-  moon.state.q = {x=0, y=0, d=0}
-  moon.radius = 15
-  moon.color = 4
-  add(entities, moon)
-  pluto = new_zone()
-  pluto.state.q = {x=100, y=0, d=0}
-  pluto.radius = 5
-  pluto.color = 12
-  add(entities, pluto)
   add(entities, player)
   add(entities, miner)
-  add(miner_targets, earth)
-  --add(miner_targets, pluto)
-  add(miner_targets, moon)
 end
 
 function _update60()
@@ -57,41 +41,48 @@ end
 
 function control_camera()
   if btn(0) then
-    player_camera.x -= 1
+    player_camera.state.q.x -= 1
   end
   if btn(1) then
-    player_camera.x += 1
+    player_camera.state.q.x += 1
   end
   if btn(2) then
-    player_camera.y -= 1
+    player_camera.state.q.y -= 1
   end
   if btn(3) then
-    player_camera.y += 1
+    player_camera.state.q.y += 1
   end
 
-  player_camera.x = mid(world_bounds.min.x, player_camera.x, world_bounds.max.x - 1)
-  player_camera.y = mid(world_bounds.min.y, player_camera.y, world_bounds.max.y - 1)
+  player_camera.state.q.x = mid(world_bounds.min.x, player_camera.state.q.x, world_bounds.max.x - 1)
+  player_camera.state.q.y = mid(world_bounds.min.y, player_camera.state.q.y, world_bounds.max.y - 1)
 
-  camera_pos.x = mid(world_bounds.min.x, player_camera.x - 64, world_bounds.max.x - 128)
-  camera_pos.y = mid(world_bounds.min.y, player_camera.y - 64, world_bounds.max.y - 128)
+  camera_pos.x = mid(world_bounds.min.x, player_camera.state.q.x - 64, world_bounds.max.x - 128)
+  camera_pos.y = mid(world_bounds.min.y, player_camera.state.q.y - 64, world_bounds.max.y - 128)
 end
 
 function _draw()
   cls()
-  line(-128, -128, -128, 254, 1)
-  line(254, 254)
-  line(254, -128)
-  line(-128, -128)
 
   draw_background()
 
   -- the cookie
   foreach(entities, draw_entity)
   camera(camera_pos.x, camera_pos.y)
+
+  if player_mode == "manager" then
+    draw_miner_path()
+  end
+
   print("[ score : "..flr(score).." ]", camera_pos.x, camera_pos.y, 2)
   print("[ miners : "..miner_count.." ]", camera_pos.x, camera_pos.y + 6, 2)
-  line(player_camera.x - 4, player_camera.y, player_camera.x + 4, player_camera.y, 8)
-  line(player_camera.x, player_camera.y - 4, player_camera.x, player_camera.y + 4, 8)
+
+
+  line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
+  line(player_camera.state.q.x, player_camera.state.q.y - 4, player_camera.state.q.x, player_camera.state.q.y + 4, 8)
+  line(-128, -128, -128, 254, 1)
+  line(254, 254)
+  line(254, -128)
+  line(-128, -128)
 end
 
 -->8
@@ -177,6 +168,9 @@ function update_player()
     control_camera()
     if btnp(4) then
       player_mode = "ship"
+    end
+    if btnp(5) then
+      modify_miner_path()
     end
   end
 end

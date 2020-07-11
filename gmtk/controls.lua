@@ -104,3 +104,18 @@ function update_miner_control(e)
       e.control.acceleration = mid(e.control.acceleration, e.limits.control.acceleration, -e.limits.control.acceleration)
   end
 end
+
+function modify_miner_path()
+    local zone = nil
+    for i=1, #entities do
+        local e = entities[i]
+        if e.type == "zone" and overlap(e, player_camera) then
+            zone = e
+            break
+        end
+    end
+    local removed = del(miner_targets, zone)
+    if removed == nil then
+        add(miner_targets, zone)
+    end
+end
