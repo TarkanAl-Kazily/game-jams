@@ -80,8 +80,8 @@ end
 
 function draw_menu()
     local top_x, top_y = camera_pos.x, camera_pos.y
-    local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.max_friction, miner_settings.kp_1, miner_settings.kp_2}
-    local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.max_friction, upgrade_maximums.kp_1, upgrade_maximums.kp_2}
+    local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.kp_1, miner_settings.kd_1, miner_settings.kp_2, miner_settings.kd_2}
+    local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.kp_1, upgrade_maximums.kd_1, upgrade_maximums.kp_2, upgrade_maximums.kd_2}
     msg = "ore: "..flr(score)
     rect(top_x, top_y, top_x + 6 + 4 * #msg, top_y + 10, 1)
     print(msg, top_x + 3, top_y + 3, 2)
@@ -96,14 +96,15 @@ function draw_menu()
     msg = "buy new ship"
     print(msg, top_x + 125 - 4 * #msg, top_y + 20, player_menu.menu_item == 0 and 10 or 8)
 
-    top_y += 20
-    for i = 1, 6 do
-        top_y += 15
-        rectfill(top_x, top_y, top_x + 127 * values[i] / max_values[i], top_y + 15, 11)
-        rect(top_x, top_y, top_x + 127, top_y + 15, 1)
-        print(player_menu.entries[i], top_x + 3, top_y + 3, player_menu.menu_item == i and 10 or 8)
+    top_y += 35
+    local height = 13
+    for i = 1, 7 do
+        rectfill(top_x, top_y, top_x + 127 * values[i] / max_values[i], top_y + height, 11)
+        rect(top_x, top_y, top_x + 127, top_y + height, 1)
+        print(player_menu.entries[i].." "..values[i], top_x + 3, top_y + 3, player_menu.menu_item == i and 10 or 8)
         if i+1 <= #upgrade_costs then
             print(upgrade_costs[i+1], top_x + 125 - 4 * #tostr(upgrade_costs[i+1]), top_y + 3, player_menu.menu_item == i and 10 or 8)
         end
+        top_y += height
     end
 end

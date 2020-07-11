@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space controller v1_0
+-- space controller v1_1
 -- tarkan al-kazily
 
 #include objects.lua
@@ -15,7 +15,7 @@ miner_count = 1
 ship_cost = 100
 entities = {}
 player_camera = {type="meta", state={q={x=64, y=64}}, radius=1}
-player_menu = {entries={"max speed", "max thrust", "max turning", "retro thrust", "Kp dx", "Kp dy"}, menu_item=0}
+player_menu = {entries={"max speed", "max thrust", "max turning", "Kp dx", "Kd dx", "Kp dy", "Kd dy"}, menu_item=0}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
 background = nil
@@ -23,7 +23,7 @@ zones = nil
 seed_background = 42
 seed_zones = 48
 
-upgrade_costs = {0, 100, 100, 100, 100}
+upgrade_costs = {0, 100, 100, 100}
 
 -- valid modes: ship, manager, menu
 player_mode = "manager"
@@ -76,10 +76,22 @@ function _draw()
   else
 
     -- the cookie
-    foreach(entities, draw_entity)
+    for i=1,#entities do
+      local e = entities[i]
+      if e.type == "zone" then
+        draw_entity(e)
+      end
+    end
 
     if player_mode == "manager" then
       draw_miner_path()
+    end
+
+    for i=1,#entities do
+      local e = entities[i]
+      if e.type != "zone" then
+        draw_entity(e)
+      end
     end
 
     -- score box
@@ -232,12 +244,15 @@ end
 
 function update_ship_cost()
   ship_cost = 75 + miner_count * 25
+  if miner_count == 0 then
+    ship_cost = 0
+  end
   upgrade_costs[1] = ship_cost
 end
 
 function update_player_menu()
-  local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.max_friction, miner_settings.kp_1, miner_settings.kp_2}
-  local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.max_friction, upgrade_maximums.kp_1, upgrade_maximums.kp_2}
+  local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.kp_1, miner_settings.kd_1, miner_settings.kp_2, miner_settings.kd_2}
+  local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.kp_1, upgrade_maximums.kd_1, upgrade_maximums.kp_2, upgrade_maximums.kd_2}
   if btnp(2) then
     player_menu.menu_item -= 1
   end
@@ -245,6 +260,8 @@ function update_player_menu()
   if btnp(3) then
     player_menu.menu_item += 1
   end
+  player_menu.menu_item = mid(0, player_menu.menu_item, #player_menu.entries)
+
 
   if btnp(5) then
     if player_menu.menu_item < #upgrade_costs then
@@ -269,21 +286,21 @@ function update_player_menu()
     values[player_menu.menu_item] += 0.01 * max_values[player_menu.menu_item]
   end
 
-  player_menu.menu_item = mid(0, player_menu.menu_item, #player_menu.entries)
-
   miner_settings.max_velocity = mid(0, values[1], max_values[1])
   miner_settings.max_acceleration = mid(0, values[2], max_values[2])
   miner_settings.max_angular_velocity = mid(0, values[3], max_values[3])
-  miner_settings.max_friction = mid(0, values[4], max_values[4])
-  miner_settings.kp_1 = mid(0, values[5], max_values[5])
+  miner_settings.kp_1 = mid(0, values[4], max_values[4])
+  miner_settings.kd_1 = mid(0, values[5], max_values[5])
   miner_settings.kp_2 = mid(0, values[6], max_values[6])
+  miner_settings.kd_2 = mid(0, values[7], max_values[7])
 
   upgrade_maximums.max_velocity = max_values[1]
   upgrade_maximums.max_acceleration = max_values[2]
   upgrade_maximums.max_angular_velocity = max_values[3]
-  upgrade_maximums.max_friction = max_values[4]
-  upgrade_maximums.kp_1 = max_values[5]
-  upgrade_maximums.kp_2 = max_values[6]
+  upgrade_maximums.kp_1 = max_values[4]
+  upgrade_maximums.kd_1 = max_values[5]
+  upgrade_maximums.kp_1 = max_values[6]
+  upgrade_maximums.kd_2 = max_values[7]
 end
 
 -->8
