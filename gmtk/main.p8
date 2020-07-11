@@ -1,10 +1,12 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- Space Clicker v0_8
+-- Space Clicker v0_9
 -- Tarkan Al-Kazily
 
+#include objects.lua
 #include controls.lua
+#include draw.lua
 
 _delta_t = 1.0 / 60.0
 time = 0.0
@@ -22,7 +24,11 @@ player_mode = "ship"
 
 function _init()
   background = generate_background()
-  entities = generate_zones()
+  --entities = generate_zones()
+  --zones = generate_zones()
+  --for z in all(zones) do
+    --add(entities, z)
+  --end
   player = new_player()
   player.state.q = {x=10, y=10, d=0}
   miner = new_miner()
@@ -35,48 +41,15 @@ function _init()
   moon.color = 4
   add(entities, moon)
   pluto = new_zone()
-  pluto.state.q = {x=128, y=0, d=0}
+  pluto.state.q = {x=100, y=0, d=0}
   pluto.radius = 5
   pluto.color = 12
   add(entities, pluto)
   add(entities, player)
   add(entities, miner)
-  --add(entities, earth)
-  --mine = create_miner_zone(0, 0, 10, 20)
-  --add(entities, mine)
-  --add(entities, create_miner(0, 0, earth, mine))
-end
-
-function new_zone()
-  local result = new_entity()
-  result.type = "zone"
-  result.radius = 30
-  result.color = 11
-  return result
-end
-
-function generate_zones()
-  srand(seed_zones)
-  local result = {}
-  for i=1, 32 do
-    local zone = new_zone()
-    zone.state.q = {x=rnd_between(world_bounds.min.x, world_bounds.max.x), y=rnd_between(world_bounds.min.y, world_bounds.max.y), d=0}
-    size = flr(rnd(10))
-    if size < 1 then
-      -- large planet
-      zone.radius = 30
-      zone.color = 3
-    elseif size < 5 then
-      -- medium planet
-      zone.radius = 15
-      zone.color = 13
-    else
-      zone.radius = 5
-      zone.color = 5
-    end
-    add(result, zone)
-  end
-  return result
+  add(miner_targets, earth)
+  --add(miner_targets, pluto)
+  add(miner_targets, moon)
 end
 
 function _update60()
@@ -111,7 +84,6 @@ function _draw()
   line(-128, -128)
 
   draw_background()
-
 
   -- the cookie
   foreach(entities, draw_entity)
@@ -155,18 +127,39 @@ end
 -- applies movement physics
 function update_entity(e)
   update_state(e.state, e.control, e.limits, _delta_t)
+  if (e.state.q.x < world_bounds.min.x) or (e.state.q.y < world_bounds.min.y) then
+    e.state = create_state(nil, nil, nil)
+  end
+  if (e.state.q.x > world_bounds.max.x) or (e.state.q.y > world_bounds.max.y) then
+    e.state = create_state(nil, nil, nil)
+  end
+
   if e.type == "miner" then
     update_miner_control(e)
   end
+
   if e.type == "zone" then
-    --update_zone(e)
+    update_zone(e)
+  end
+
+  if e.type == "player" or e.type == "miner" then
+    update_points(e)
   end
 end
 
 
 function update_zone(zone)
-  if not btn(4) then
-    zone.timer.cur = max(0, zone.timer.cur - 1)
+  zone.point = min(100, zone.point + zone.point_growth * _delta_t)
+end
+
+function update_points(ship)
+  for i=1,#entities do
+    e = entities[i]
+    if (e.type == "zone") and (distance_squared(ship.state.q, e.state.q) < (e.radius * e.radius)) then
+      --printh(e.state.q.x..","..e.state.q.y..","..e.radius)
+      score += e.point
+      e.point = 0
+    end
   end
 end
 
@@ -231,10 +224,6 @@ function player_interact(e)
 
 end
 
-function add_points(e)
-  score += e.zone.points
-end
-
 function buy_miner(e)
   if score > e.zone.miner_cost then
     score -= e.zone.miner_cost
@@ -242,82 +231,6 @@ function buy_miner(e)
     miner_count += 1
     miner = create_miner(e.pos.x, e.pos.y, earth, e)
     add(entities, miner)
-  end
-end
-
-function update_points()
-  score += miner_count * _delta_t * 1.0
-end
-
--->8
--- drawing code
-
--- creates a starry background. should be called once
-function generate_background()
-  srand(seed_background)
-  local result = {}
-  for i=1,128 do
-    local star = {x=rnd_between(world_bounds.min.x, world_bounds.max.x), y=rnd_between(world_bounds.min.y, world_bounds.max.y), c=flr(rnd(3)), t=flr(rnd(4))}
-    if star.c == 0 then
-      star.c = 7
-    elseif star.c == 1 then
-      star.c = 9
-    else
-      star.c = 10
-    end
-    add(result, star)
-  end
-  return result
-end
-
--- draws the starry background. should be first in draw loop
-function draw_background()
-  foreach(background, draw_star)
-end
-
--- draws the starry background
-function draw_star(s)
-  if s.t > 2 then
-    line(s.x-1,s.y, s.x+1, s.y, s.c)
-    line(s.x,s.y-1, s.x, s.y+1, s.c)
-  else
-    pset(s.x, s.y, s.c)
-  end
-end
-
--- draws circular zones (planets)
-function draw_zone(z)
-  circfill(z.pos.x, z.pos.y, z.radius, z.color)
-end
-
--- draws a little ship
-function draw_ship(state_q, c, thrust)
-  local p1, p2, p3, p4 = {x=3, y=0}, {x=-2, y=-2}, {x=-1, y=0}, {x=-2, y=2}
-
-  p1 = se2(p1, state_q)
-  p2 = se2(p2, state_q)
-  p3 = se2(p3, state_q)
-  p4 = se2(p4, state_q)
-
-  draw_polygon({p1, p2, p3, p4}, c)
-
-  if thrust then
-    p1, p2, p3 = {x=-4, y=0}, {x=-2, y=1}, {x=-2, y=-1}
-    p1 = se2(p1, state_q)
-    p2 = se2(p2, state_q)
-    p3 = se2(p3, state_q)
-    draw_polygon({p1, p2, p3}, 7)
-  end
-end
-
-function draw_entity(e)
-  if e.type == "player" then
-    draw_ship(e.state.q, 8, e.control.acceleration > 0)
-  elseif e.type == "miner" then
-    draw_ship(e.state.q, 14, e.control.acceleration > 0)
-    print(e.current_target, e.state.q.x + 10, e.state.q.y, 7)
-  elseif e.type == "zone" then
-    circfill(e.state.q.x, e.state.q.y, e.radius, e.color)
   end
 end
 
@@ -337,6 +250,9 @@ end
 
 function distance_squared(p1, p2)
   local dx, dy = p1.x - p2.x, p1.y - p2.y
+  if (dx * dx + dy * dy) < 0 then
+    return 10000.0
+  end
   return dx * dx + dy * dy
 end
 

@@ -32,64 +32,7 @@ player_limits = {
 }
 
 -- a list of targets for miners to cycle between
-miner_targets = {
-    {x=0, y=0},
-    {x=64, y=64},
-    {x=128, y=0}
-}
-
-function get_limits_from_settings(settings)
-    local limits = {}
-    limits.q_dot = {x=_state_limits.velocity[settings.state.velocity], y=_state_limits.velocity[settings.state.velocity], d=100}
-    limits.control = {}
-    limits.control.acceleration = _control_limits.acceleration[settings.controls.acceleration]
-    limits.control.friction = _control_limits.friction[settings.controls.friction]
-    limits.control.angular_velocity = _control_limits.angular_velocity[settings.controls.angular_velocity]
-    return limits
-end
-
-function new_entity()
-    local result = {}
-    result.state = create_state(nil, nil, nil)
-    result.control = create_control()
-    result.limits = nil
-    result.type = nil
-    return result
-end
-
-function new_miner()
-    local result = new_entity()
-    result.limits = get_limits_from_settings(miner_limits)
-    result.type = "miner"
-    result.current_target = 1
-    result.target_threshold = 25
-    return result
-end
-
-function new_player()
-    local result = new_entity()
-    result.limits = get_limits_from_settings(player_limits)
-    result.type = "player"
-    return result
-end
-
-function create_state(q, q_dot, q_ddot)
-    local result = {q=q, q_dot=q_dot, q_ddot=q_ddot}
-    if result.q == nil then
-        result.q = {x=0, y=0, d=0}
-    end
-    if result.q_dot == nil then
-        result.q_dot = {x=0, y=0, d=0}
-    end
-    if result.q_ddot == nil then
-        result.q_ddot = {x=0, y=0, d=0}
-    end
-    return result
-end
-
-function create_control()
-    return {angular_velocity=0, acceleration=0, friction=0}
-end
+miner_targets = {}
 
 -- state given by create_state
 -- control takes the form {angular_velocity, acceleration, friction}
@@ -123,9 +66,20 @@ function update_state(state, control, limits, dt)
 end
 
 function update_miner_control(e)
-  local target = miner_targets[e.current_target]
+  if #miner_targets == 0 then
+    e.control = create_control()
+    return
+  end
 
-  if distance_squared(e.state.q, target) < e.target_threshold * e.target_threshold then
+  if e.current_target > #miner_targets then
+    e.current_target = 1
+  end
+
+  local target_zone = miner_targets[e.current_target]
+  local target_threshold = target_zone.radius
+  local target = target_zone.state.q
+
+  if distance_squared(e.state.q, target) < target_threshold * target_threshold then
     e.current_target = (e.current_target % #miner_targets) + 1
   else
       local dx, dy = target.x - e.state.q.x, - target.y + e.state.q.y
@@ -139,7 +93,7 @@ function update_miner_control(e)
         e.control.angular_velocity = 0
       end
 
-      if dx > 0 and abs(dy) < e.target_threshold then
+      if dx > 0 and abs(dy) < target_threshold then
         e.control.acceleration = 100.0
       else
         e.control.acceleration = 0
