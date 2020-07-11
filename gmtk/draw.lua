@@ -17,7 +17,15 @@ end
 
 -- draws circular zones (planets)
 function draw_zone(z)
-  circfill(z.pos.x, z.pos.y, z.radius, z.color)
+  local posx, posy = mid(z.state.q.x, camera_pos.x - z.radius, camera_pos.x + z.radius + 127), mid(z.state.q.y, camera_pos.y - z.radius, camera_pos.y + z.radius + 127)
+  if posx != z.state.q.x or posy != z.state.q.y then
+      return
+  end
+  circfill(z.state.q.x, z.state.q.y, z.radius, z.color)
+  local dots, r, start, delta = flr(z.point), z.radius + 2, (time / 30 + z.state.q.x / 64.0) % 1.0, 0.7321
+  for i=1, dots do
+    pset(z.state.q.x + (r + sin(i / dots)) * cos((i * delta + start) % 1.0), z.state.q.y + (r + sin(i / dots)) *sin((i * delta + start) % 1.0), (i % 2 == 0) and 4 or 5)
+  end
 end
 
 -- draws a little ship
@@ -46,10 +54,9 @@ function draw_entity(e)
     draw_ship(e.state.q, 8, e.control.acceleration > 0)
   elseif e.type == "miner" then
     draw_ship(e.state.q, 14, e.control.acceleration > 0)
-    print(e.current_target, e.state.q.x + 10, e.state.q.y, 7)
+    --print(e.current_target, e.state.q.x + 10, e.state.q.y, 7)
   elseif e.type == "zone" then
-    circfill(e.state.q.x, e.state.q.y, e.radius, e.color)
-    print(flr(e.point), e.state.q.x, e.state.q.y, 7)
+    draw_zone(e)
   end
 end
 

@@ -53,6 +53,10 @@ function update_state(state, control, limits, dt)
 
     -- q_ddot.d unused
     state.q_ddot.d = 0
+
+    if control.acceleration > 0 then
+        sfx(1)
+    end
 end
 
 function update_miner_control(e)
