@@ -91,11 +91,11 @@ function draw_menu()
     local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.kp_1, upgrade_maximums.kd_1, upgrade_maximums.kp_2, upgrade_maximums.kd_2}
     msg = "ore: "..flr(score)
     rect(top_x, top_y, top_x + 6 + 4 * #msg, top_y + 10, 1)
-    print(msg, top_x + 3, top_y + 3, 2)
+    print(msg, top_x + 3, top_y + 3, 8)
     
     msg = "ships: "..miner_count
     rect(top_x + 64, top_y, top_x + 70 + 4 * #msg, top_y + 10, 1)
-    print(msg, top_x + 67, top_y + 3, 2)
+    print(msg, top_x + 67, top_y + 3, 8)
 
     msg = "ship cost: "..ship_cost
     print(msg, top_x + 3, top_y + 20, 8)

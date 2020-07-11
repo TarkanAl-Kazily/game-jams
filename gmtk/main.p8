@@ -38,10 +38,10 @@ function _init()
 end
 
 function _update60()
-  time += _delta_t
   update_player()
   update_ship_cost()
   if player_mode != "menu" then
+    time += _delta_t
     update_entities()
   end
 end
@@ -84,7 +84,7 @@ function _draw()
       end
     end
 
-    if player_mode == "manager" then
+    if player_mode == "manager" or player_mode == "ship" then
       draw_miner_path()
     end
 
@@ -97,8 +97,21 @@ function _draw()
 
     -- score box
     msg = "ore: "..flr(score)
+    rectfill(camera_pos.x, camera_pos.y, camera_pos.x + 6 + 4 * #msg, camera_pos.y + 10, 0)
     rect(camera_pos.x, camera_pos.y, camera_pos.x + 6 + 4 * #msg, camera_pos.y + 10, 1)
-    print(msg, camera_pos.x + 3, camera_pos.y+ 3, 2)
+    print(msg, camera_pos.x + 3, camera_pos.y+ 3, 8)
+
+    -- timer box
+    local m, s = flr(time / 60), flr(time % 60)
+    msg = m..":"..s
+    if s < 10 then
+      msg = m..":0"..s
+    end
+    rectfill(camera_pos.x + 127, camera_pos.y, camera_pos.x + 124 - 4 * #msg, camera_pos.y + 10, 0)
+    rect(camera_pos.x + 127, camera_pos.y, camera_pos.x + 124 - 4 * #msg, camera_pos.y + 10, 1)
+    print(msg, camera_pos.x + 127 - 4 * #msg, camera_pos.y+ 3, 8)
+
+
 
     if player_mode == "manager" then
       line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
@@ -117,15 +130,15 @@ end
 -- moves the camera to try and center the player
 function update_camera()
   local dx, dy = player.state.q.x - camera_pos.x, player.state.q.y - camera_pos.y
-  if dx < 16 then
+  if dx < 32 then
     camera_pos.x -= 2.0
-  elseif dx > 112 then
+  elseif dx > 95 then
     camera_pos.x += 2.0
   end
 
-  if dy < 16 then
+  if dy < 32 then
     camera_pos.y -= 1.0
-  elseif dy > 112 then
+  elseif dy > 95 then
     camera_pos.y += 1.0
   end
 
@@ -199,6 +212,8 @@ function update_player()
     update_player_control()
     update_camera()
     if btnp(5) then
+      player_camera.state.q.x = camera_pos.x + 64
+      player_camera.state.q.y = camera_pos.y + 64
       switch_from_ship()
       player_mode = "manager"
     end
