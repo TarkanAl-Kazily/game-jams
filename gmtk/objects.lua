@@ -1,14 +1,3 @@
-
-function get_limits_from_settings(settings)
-    local limits = {}
-    limits.q_dot = {x=_state_limits.velocity[settings.state.velocity], y=_state_limits.velocity[settings.state.velocity], d=100}
-    limits.control = {}
-    limits.control.acceleration = _control_limits.acceleration[settings.controls.acceleration]
-    limits.control.friction = _control_limits.friction[settings.controls.friction]
-    limits.control.angular_velocity = _control_limits.angular_velocity[settings.controls.angular_velocity]
-    return limits
-end
-
 -- creates the base entity type, with a state compatible for control
 function new_entity()
     local result = {}
@@ -23,7 +12,7 @@ end
 -- creates a miner ship
 function new_miner()
     local result = new_entity()
-    result.limits = get_limits_from_settings(miner_limits)
+    result.limits = miner_settings
     result.type = "miner"
     result.current_target = 1
     result.target_threshold = 25
@@ -33,7 +22,7 @@ end
 -- creates a player ship
 function new_player()
     local result = new_entity()
-    result.limits = get_limits_from_settings(player_limits)
+    result.limits = miner_settings
     result.type = "player"
     return result
 end

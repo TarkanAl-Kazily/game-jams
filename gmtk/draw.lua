@@ -77,3 +77,30 @@ function draw_miner_path()
     tx, ty = miner_targets[1].state.q.x, miner_targets[1].state.q.y
     line(tx, ty)
 end
+
+function draw_menu()
+    local top_x, top_y = camera_pos.x, camera_pos.y
+    local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.max_friction, miner_settings.kp_1, miner_settings.kp_2}
+    local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.max_friction, upgrade_maximums.kp_1, upgrade_maximums.kp_2}
+    msg = "ore: "..flr(score)
+    rect(top_x, top_y, top_x + 6 + 4 * #msg, top_y + 10, 1)
+    print(msg, top_x + 3, top_y + 3, 2)
+    
+    msg = "ships: "..miner_count
+    rect(top_x + 64, top_y, top_x + 70 + 4 * #msg, top_y + 10, 1)
+    print(msg, top_x + 67, top_y + 3, 2)
+
+    msg = "ship cost: "..ship_cost
+    print(msg, top_x + 3, top_y + 20, 8)
+
+    msg = "buy new ship"
+    print(msg, top_x + 125 - 4 * #msg, top_y + 20, player_menu.menu_item == 0 and 10 or 8)
+
+    top_y += 20
+    for i = 1, 6 do
+        top_y += 15
+        rectfill(top_x, top_y, top_x + 127 * values[i] / max_values[i], top_y + 15, 11)
+        rect(top_x, top_y, top_x + 127, top_y + 15, 1)
+        print(player_menu.entries[i], top_x + 3, top_y + 3, player_menu.menu_item == i and 10 or 8)
+    end
+end

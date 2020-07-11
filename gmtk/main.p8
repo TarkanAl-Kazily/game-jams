@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space clicker v0_11
+-- space clicker v0_12
 -- tarkan al-kazily
 
 #include objects.lua
@@ -11,9 +11,11 @@ __lua__
 _delta_t = 1.0 / 60.0
 time = 0.0
 score = 0
-miner_count = 0
+miner_count = 1
+ship_cost = 100
 entities = {}
 player_camera = {type="meta", state={q={x=64, y=64}}, radius=1}
+player_menu = {entries={"max speed", "max thrust", "max turning", "retro thrust", "Kp dx", "Kp dy"}, menu_item=0}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
 background = nil
@@ -21,19 +23,24 @@ zones = nil
 seed_background = 42
 seed_zones = 48
 
+-- valid modes: ship, manager, menu
 player_mode = "manager"
 
 function _init()
   background = generate_background()
   entities = generate_zones()
   miner = new_miner()
+  miner.state.q = {x=50, y=50, d=0}
   add(entities, miner)
 end
 
 function _update60()
   time += _delta_t
   update_player()
-  update_entities()
+  update_ship_cost()
+  if player_mode != "menu" then
+    update_entities()
+  end
 end
 
 function control_camera()
@@ -61,29 +68,32 @@ function _draw()
   cls()
 
   draw_background()
-
-  -- the cookie
-  foreach(entities, draw_entity)
   camera(camera_pos.x, camera_pos.y)
+  if player_mode == "menu" then
+    draw_menu()
+  else
 
-  if player_mode == "manager" then
-    draw_miner_path()
+    -- the cookie
+    foreach(entities, draw_entity)
+
+    if player_mode == "manager" then
+      draw_miner_path()
+    end
+
+    -- score box
+    msg = "ore: "..flr(score)
+    rect(camera_pos.x, camera_pos.y, camera_pos.x + 6 + 4 * #msg, camera_pos.y + 10, 1)
+    print(msg, camera_pos.x + 3, camera_pos.y+ 3, 2)
+
+    if player_mode == "manager" then
+      line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
+      line(player_camera.state.q.x, player_camera.state.q.y - 4, player_camera.state.q.x, player_camera.state.q.y + 4, 8)
+    end
+    line(-128, -128, -128, 254, 1)
+    line(254, 254)
+    line(254, -128)
+    line(-128, -128)
   end
-
-
-  msg = "ore : "..flr(score)
-  rect(camera_pos.x, camera_pos.y, camera_pos.x + 6 + 4 * #msg, camera_pos.y + 10, 1)
-  print(msg, camera_pos.x + 3, camera_pos.y+ 3, 2)
-
-
-  if player_mode == "manager" then
-    line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
-    line(player_camera.state.q.x, player_camera.state.q.y - 4, player_camera.state.q.x, player_camera.state.q.y + 4, 8)
-  end
-  line(-128, -128, -128, 254, 1)
-  line(254, 254)
-  line(254, -128)
-  line(-128, -128)
 end
 
 -->8
@@ -120,9 +130,10 @@ end
 function update_entity(e)
   update_state(e.state, e.control, e.limits, _delta_t)
   if (e.state.q.x < world_bounds.min.x) or (e.state.q.y < world_bounds.min.y) then
+    miner_count -= 1
     del(entities, e)
-  end
-  if (e.state.q.x > world_bounds.max.x) or (e.state.q.y > world_bounds.max.y) then
+  elseif (e.state.q.x > world_bounds.max.x) or (e.state.q.y > world_bounds.max.y) then
+    miner_count -= 1
     del(entities, e)
   end
 
@@ -166,20 +177,20 @@ function update_player()
       switch_from_ship()
       player_mode = "manager"
     end
-  else
+  elseif player_mode == "manager" then
     control_camera()
     if btnp(5) then
       local affected_miner_path = modify_miner_path()
       if not affected_miner_path and switch_to_ship() then
         player_mode = "ship"
       end
+    elseif btnp(4) then
+      player_mode = "menu"
     end
-  end
-
-  if btnp(4) then
-    if score > 100 then
-      score -= 100
-      add(entities, new_miner())
+  elseif player_mode == "menu" then
+    update_player_menu()
+    if btnp(4) then
+      player_mode = "manager"
     end
   end
 end
@@ -205,9 +216,48 @@ function update_player_control()
     player.control.acceleration = 0.0
   end
 
-  player.limits = get_limits_from_settings(player_limits)
-  player.control.angular_velocity = mid(player.control.angular_velocity, player.limits.control.angular_velocity, -player.limits.control.angular_velocity)
-  player.control.acceleration = mid(player.control.acceleration, player.limits.control.acceleration, -player.limits.control.acceleration)
+  if btn(3) then
+    player.control.friction = 100.0
+  else
+    player.control.friction = 0.0
+  end
+
+  player.control.angular_velocity = mid(player.control.angular_velocity, miner_settings.max_angular_velocity, -miner_settings.max_angular_velocity)
+  player.control.acceleration = mid(player.control.acceleration, miner_settings.max_acceleration, -miner_settings.max_acceleration)
+  player.control.friction = mid(player.control.friction, miner_settings.max_friction, -miner_settings.max_friction)
+end
+
+function update_ship_cost()
+  ship_cost = flr(90 + 10 * (1.3^(miner_count-1)))
+end
+
+function update_player_menu()
+  local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.max_friction, miner_settings.kp_1, miner_settings.kp_2}
+  local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.max_friction, upgrade_maximums.kp_1, upgrade_maximums.kp_2}
+  if btnp(2) then
+    player_menu.menu_item -= 1
+  end
+
+  if btnp(3) then
+    player_menu.menu_item += 1
+  end
+
+  if player_menu.menu_item > 0 and btnp(0) then
+    values[player_menu.menu_item] -= 0.1 * max_values[player_menu.menu_item]
+  end
+
+  if player_menu.menu_item > 0 and btnp(1) then
+    values[player_menu.menu_item] += 0.1 * max_values[player_menu.menu_item]
+  end
+
+  player_menu.menu_item = mid(0, player_menu.menu_item, #player_menu.entries)
+
+  miner_settings.max_velocity = mid(0, values[1], max_values[1])
+  miner_settings.max_acceleration = mid(0, values[2], max_values[2])
+  miner_settings.max_angular_velocity = mid(0, values[3], max_values[3])
+  miner_settings.max_friction = mid(0, values[4], max_values[4])
+  miner_settings.kp_1 = mid(0, values[5], max_values[5])
+  miner_settings.kp_2 = mid(0, values[6], max_values[5])
 end
 
 -->8

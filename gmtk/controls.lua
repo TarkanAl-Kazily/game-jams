@@ -9,26 +9,22 @@ _control_limits = {
     angular_velocity={0.25, 0.5, 0.75, 1.0}
 }
 
-miner_limits = {
-    state={
-        velocity=1,
-    },
-    controls={
-        acceleration=1,
-        friction=1,
-        angular_velocity=1
-    }
+miner_settings = {
+    max_velocity = 10,
+    max_acceleration=5,
+    max_angular_velocity=0.25,
+    max_friction=0.0,
+    kp_1=0.25,
+    kp_2=1.0
 }
 
-player_limits = {
-    state={
-        velocity=1,
-    },
-    controls={
-        acceleration=1,
-        friction=1,
-        angular_velocity=1
-    }
+upgrade_maximums = {
+    max_velocity = 20,
+    max_acceleration=10,
+    max_angular_velocity=2.0,
+    max_friction=1.0,
+    kp_1=1.0,
+    kp_2=1.0
 }
 
 -- a list of targets for miners to cycle between
@@ -37,10 +33,6 @@ miner_targets = {}
 -- state given by create_state
 -- control takes the form {angular_velocity, acceleration, friction}
 function update_state(state, control, limits, dt)
-    if limits == nil then
-        limits = {q=nil, q_dot=nil, q_ddot=nil}
-    end
-
     -- q.x, q.y, q.d based directly off of q_dot.x, q_dot.y, q_dot.d
     state.q.x += state.q_dot.x * dt
     state.q.y += state.q_dot.y * dt
@@ -52,9 +44,9 @@ function update_state(state, control, limits, dt)
     -- q_dot.d based off of control and angular momentum
     state.q_dot.d = control.angular_velocity
     
-    if limits.q_dot != nil then
-        state.q_dot.x = mid(-limits.q_dot.x, state.q_dot.x, limits.q_dot.x)
-        state.q_dot.y = mid(-limits.q_dot.y, state.q_dot.y, limits.q_dot.y)
+    if limits != nil then
+        state.q_dot.x = mid(-limits.max_velocity * cos(state.q.d), state.q_dot.x, limits.max_velocity * cos(state.q.d))
+        state.q_dot.y = mid(-limits.max_velocity * sin(state.q.d), state.q_dot.y, limits.max_velocity * sin(state.q.d))
     end
 
     -- q_ddot.x and q_ddot.y based off of control, q.d, and control friction
@@ -93,15 +85,15 @@ function update_miner_control(e)
         e.control.angular_velocity = 0
       end
 
-      if dx > 0 and abs(dy) < target_threshold then
+      if dx > 0 then
         e.control.acceleration = 100.0
       else
         e.control.acceleration = 0
       end
 
-      e.limits = get_limits_from_settings(miner_limits)
-      e.control.angular_velocity = mid(e.control.angular_velocity, e.limits.control.angular_velocity, -e.limits.control.angular_velocity)
-      e.control.acceleration = mid(e.control.acceleration, e.limits.control.acceleration, -e.limits.control.acceleration)
+      e.control.angular_velocity = mid(e.control.angular_velocity, miner_settings.max_angular_velocity, -miner_settings.max_angular_velocity)
+      e.control.acceleration = mid(e.control.acceleration, miner_settings.max_acceleration, -miner_settings.max_acceleration)
+      e.control.friction = mid(e.control.friction, miner_settings.max_friction, -miner_settings.max_friction)
   end
 end
 
