@@ -1,8 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- Space Clicker v0_9
--- Tarkan Al-Kazily
+-- space clicker v0_9
+-- tarkan al-kazily
 
 #include objects.lua
 #include controls.lua
@@ -13,6 +13,7 @@ time = 0.0
 score = 0
 miner_count = 0
 entities = {}
+player_camera = {x=64, y=64}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
 background = nil
@@ -24,11 +25,7 @@ player_mode = "ship"
 
 function _init()
   background = generate_background()
-  --entities = generate_zones()
-  --zones = generate_zones()
-  --for z in all(zones) do
-    --add(entities, z)
-  --end
+  entities = generate_zones()
   player = new_player()
   player.state.q = {x=10, y=10, d=0}
   miner = new_miner()
@@ -60,20 +57,23 @@ end
 
 function control_camera()
   if btn(0) then
-    camera_pos.x -= 1
+    player_camera.x -= 1
   end
   if btn(1) then
-    camera_pos.x += 1
+    player_camera.x += 1
   end
   if btn(2) then
-    camera_pos.y -= 1
+    player_camera.y -= 1
   end
   if btn(3) then
-    camera_pos.y += 1
+    player_camera.y += 1
   end
 
-  camera_pos.x = mid(world_bounds.min.x, camera_pos.x, world_bounds.max.x - 128)
-  camera_pos.y = mid(world_bounds.min.y, camera_pos.y, world_bounds.max.y - 128)
+  player_camera.x = mid(world_bounds.min.x, player_camera.x, world_bounds.max.x - 1)
+  player_camera.y = mid(world_bounds.min.y, player_camera.y, world_bounds.max.y - 1)
+
+  camera_pos.x = mid(world_bounds.min.x, player_camera.x - 64, world_bounds.max.x - 128)
+  camera_pos.y = mid(world_bounds.min.y, player_camera.y - 64, world_bounds.max.y - 128)
 end
 
 function _draw()
@@ -90,8 +90,8 @@ function _draw()
   camera(camera_pos.x, camera_pos.y)
   print("[ score : "..flr(score).." ]", camera_pos.x, camera_pos.y, 2)
   print("[ miners : "..miner_count.." ]", camera_pos.x, camera_pos.y + 6, 2)
-  line(camera_pos.x + 60, camera_pos.y + 64, camera_pos.x + 68, camera_pos.y + 64, 8)
-  line(camera_pos.x + 64, camera_pos.y + 60, camera_pos.x + 64, camera_pos.y + 68, 8)
+  line(player_camera.x - 4, player_camera.y, player_camera.x + 4, player_camera.y, 8)
+  line(player_camera.x, player_camera.y - 4, player_camera.x, player_camera.y + 4, 8)
 end
 
 -->8
@@ -155,7 +155,7 @@ end
 function update_points(ship)
   for i=1,#entities do
     e = entities[i]
-    if (e.type == "zone") and (distance_squared(ship.state.q, e.state.q) < (e.radius * e.radius)) then
+    if (e.type == "zone") and overlap(e, ship) then
       --printh(e.state.q.x..","..e.state.q.y..","..e.radius)
       score += e.point
       e.point = 0
@@ -207,33 +207,6 @@ function update_player_control()
   player.control.acceleration = mid(player.control.acceleration, player.limits.control.acceleration, -player.limits.control.acceleration)
 end
 
--- Player interacts with the given zone
-function player_interact(e)
-  if e.zone == nil then 
-    return
-  end
-
-  if distance_squared(player.pos, e.pos) > e.zone.radius * e.zone.radius then
-    return
-  end
-
-  if e.zone.timer.cur == 0 then
-    e.zone.timer.cur = e.zone.timer.reset
-    e.zone.action(e)
-  end
-
-end
-
-function buy_miner(e)
-  if score > e.zone.miner_cost then
-    score -= e.zone.miner_cost
-    e.zone.miner_cost = flr(e.zone.miner_cost * e.zone.miner_growth)
-    miner_count += 1
-    miner = create_miner(e.pos.x, e.pos.y, earth, e)
-    add(entities, miner)
-  end
-end
-
 -->8
 -- utils and math
 
@@ -246,6 +219,22 @@ function se2(point, state)
   result.x += dx
   result.y += dy
   return result
+end
+
+function overlap(e1, e2)
+  local dx, dy = e1.state.q.x - e2.state.q.x, e1.state.q.y - e2.state.q.y
+  local sum_radius = 0
+  if e1.type == "zone" then
+    sum_radius += e1.radius
+  end
+  if e2.type == "zone" then
+    sum_radius += e2.radius
+  end
+  if abs(dx) > sum_radius or abs(dy) > sum_radius then
+    return false
+  end
+  local dist = dx * dx + dy * dy
+  return dist < sum_radius * sum_radius
 end
 
 function distance_squared(p1, p2)

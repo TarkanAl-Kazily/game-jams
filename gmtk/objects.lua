@@ -75,7 +75,6 @@ function generate_zones()
   local result = {}
   for i=1, 32 do
     local zone = new_zone()
-    zone.point_growth = 0.0
     zone.state.q = {x=rnd_between(world_bounds.min.x, world_bounds.max.x), y=rnd_between(world_bounds.min.y, world_bounds.max.y), d=0}
     size = flr(rnd(10))
     if size < 1 then
@@ -92,8 +91,18 @@ function generate_zones()
       zone.color = 5
       zone.point_growth = 5.0
     end
-    add(result, zone)
+    local add_zone = true
+    for j=1, #result do
+        if overlap(result[j], zone) then
+            add_zone = false
+            break
+        end
+    end
+    if add_zone then
+        add(result, zone)
+    end
   end
+
   return result
 end
 
