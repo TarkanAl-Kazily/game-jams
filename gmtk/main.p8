@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- Space Clicker v0_6
+-- Space Clicker v0_7
 -- Tarkan Al-Kazily
 
 _delta_t = 1.0 / 60.0
@@ -24,6 +24,7 @@ function create_entity(x, y)
   result.dir_acc = {cur=0.0, max=1.0, timer=0, friction=2.0}
   result.friction = 1.0
   result.zone = nil
+  result.controls = nil
   return result
 end
 
@@ -47,6 +48,15 @@ function create_miner_zone(x, y, r, cost)
   return result
 end
 
+-- creates a new thing that is a miner
+function create_miner(x, y, e1, e2)
+  local result = create_entity(x, y)
+  result.vel.max = 15
+  result.dir_vel.max = 0.25
+  result.controls = {targets={e1, e2}, cur=1, threshold=25, kp={dx=1.0, dy=2.0}}
+  return result
+end
+
 function _init()
   background = generate_background()
   player = create_entity(5, 5)
@@ -55,6 +65,7 @@ function _init()
   add(entities, earth)
   mine = create_miner_zone(0, 0, 10, 20)
   add(entities, mine)
+  --add(entities, create_miner(0, 0, earth, mine))
 end
 
 function _update60()
@@ -77,7 +88,7 @@ function _draw()
   camera(camera_pos.x, camera_pos.y)
 
   -- the cookie
-  foreach(entities, draw_zone)
+  foreach(entities, draw_entity)
 
   print("[ score : "..flr(score).." ]", camera_pos.x, camera_pos.y, 2)
   print("[ miners : "..miner_count.." ]", camera_pos.x, camera_pos.y + 6, 2)
@@ -157,6 +168,10 @@ function update_entity(e)
   if e.zone != nil then
     update_zone(e.zone)
   end
+
+  if e.controls != nil then
+    update_controls(e)
+  end
 end
 
 
@@ -166,9 +181,28 @@ function update_zone(zone)
   end
 end
 
-function draw_zone(e)
-  if e.zone != nil then
-    circfill(e.pos.x, e.pos.y, e.zone.radius, e.zone.color)
+function update_controls(e)
+  local target = e.controls.targets[e.controls.cur]
+  local dx, dy = target.pos.x - e.pos.x, - target.pos.y + e.pos.y
+  dx, dy = cos(e.dir.cur) * dx - sin(e.dir.cur) * dy, sin(e.dir.cur) * dx + cos(e.dir.cur) * dy
+  dx *= e.controls.kp.dx
+  dy *= e.controls.kp.dy
+
+  if (dx < 0) or abs(dy) > e.controls.threshold then
+    e.dir_acc.cur = sign(dy) * e.dir_acc.max
+  else
+    e.dir_acc.cur = 0
+  end
+
+  if dx > e.controls.threshold then
+    e.acc.cur = e.acc.max
+  else
+    e.acc.cur = 0
+  end
+
+
+  if distance_squared(e.pos, target.pos) < e.controls.threshold * e.controls.threshold then
+    e.controls.cur = (e.controls.cur % #e.controls.targets) + 1
   end
 end
 
@@ -225,6 +259,8 @@ function buy_miner(e)
     score -= e.zone.miner_cost
     e.zone.miner_cost = flr(e.zone.miner_cost * e.zone.miner_growth)
     miner_count += 1
+    miner = create_miner(e.pos.x, e.pos.y, earth, e)
+    add(entities, miner)
   end
 end
 
@@ -269,23 +305,43 @@ end
 
 -- draws a little ship
 function draw_player()
+  draw_ship(player.pos, player.dir.cur, 8, btn(2))
+end
+
+function draw_ship(pos, dir, c, thrust)
   local p1, p2, p3, p4 = {x=3, y=0}, {x=-2, y=-2}, {x=-1, y=0}, {x=-2, y=2}
 
-  p1 = se2(p1, player.pos, player.dir.cur)
-  p2 = se2(p2, player.pos, player.dir.cur)
-  p3 = se2(p3, player.pos, player.dir.cur)
-  p4 = se2(p4, player.pos, player.dir.cur)
+  p1 = se2(p1, pos, dir)
+  p2 = se2(p2, pos, dir)
+  p3 = se2(p3, pos, dir)
+  p4 = se2(p4, pos, dir)
 
-  draw_polygon({p1, p2, p3, p4}, 8)
+  draw_polygon({p1, p2, p3, p4}, c)
 
-  if btn(2) then
+  if thrust then
     p1, p2, p3 = {x=-4, y=0}, {x=-2, y=1}, {x=-2, y=-1}
-    p1 = se2(p1, player.pos, player.dir.cur)
-    p2 = se2(p2, player.pos, player.dir.cur)
-    p3 = se2(p3, player.pos, player.dir.cur)
+    p1 = se2(p1, pos, dir)
+    p2 = se2(p2, pos, dir)
+    p3 = se2(p3, pos, dir)
     draw_polygon({p1, p2, p3}, 7)
   end
 end
+
+function draw_entity(e)
+  if e.zone != nil then
+    draw_zone(e)
+  end
+
+  if e.controls != nil then
+    draw_ship(e.pos, e.dir.cur, 14, e.acc.cur > 0)
+    print(e.controls.cur, e.pos.x + 10, e.pos.y, 7)
+  end
+end
+
+function draw_zone(e)
+  circfill(e.pos.x, e.pos.y, e.zone.radius, e.zone.color)
+end
+
 
 -->8
 -- utils and math
