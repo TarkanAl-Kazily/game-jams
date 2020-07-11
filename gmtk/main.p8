@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space clicker v0_12
+-- space controller v1_0
 -- tarkan al-kazily
 
 #include objects.lua
@@ -22,6 +22,8 @@ background = nil
 zones = nil
 seed_background = 42
 seed_zones = 48
+
+upgrade_costs = {0, 100, 100, 100, 100}
 
 -- valid modes: ship, manager, menu
 player_mode = "manager"
@@ -180,9 +182,10 @@ function update_player()
   elseif player_mode == "manager" then
     control_camera()
     if btnp(5) then
-      local affected_miner_path = modify_miner_path()
-      if not affected_miner_path and switch_to_ship() then
+      if switch_to_ship() then
         player_mode = "ship"
+      else
+        modify_miner_path()
       end
     elseif btnp(4) then
       player_mode = "menu"
@@ -228,7 +231,8 @@ function update_player_control()
 end
 
 function update_ship_cost()
-  ship_cost = flr(90 + 10 * (1.3^(miner_count-1)))
+  ship_cost = 75 + miner_count * 25
+  upgrade_costs[1] = ship_cost
 end
 
 function update_player_menu()
@@ -242,12 +246,27 @@ function update_player_menu()
     player_menu.menu_item += 1
   end
 
-  if player_menu.menu_item > 0 and btnp(0) then
-    values[player_menu.menu_item] -= 0.1 * max_values[player_menu.menu_item]
+  if btnp(5) then
+    if player_menu.menu_item < #upgrade_costs then
+      if score > upgrade_costs[player_menu.menu_item+1] then
+        score -= upgrade_costs[player_menu.menu_item+1]
+        if player_menu.menu_item == 0 then
+          add(entities, new_miner())
+          miner_count += 1
+        else
+          max_values[player_menu.menu_item] += upgrade_amounts[player_menu.menu_item]
+          upgrade_costs[player_menu.menu_item+1] += 25
+        end
+      end
+    end
   end
 
-  if player_menu.menu_item > 0 and btnp(1) then
-    values[player_menu.menu_item] += 0.1 * max_values[player_menu.menu_item]
+  if player_menu.menu_item > 0 and btn(0) then
+    values[player_menu.menu_item] -= 0.01 * max_values[player_menu.menu_item]
+  end
+
+  if player_menu.menu_item > 0 and btn(1) then
+    values[player_menu.menu_item] += 0.01 * max_values[player_menu.menu_item]
   end
 
   player_menu.menu_item = mid(0, player_menu.menu_item, #player_menu.entries)
@@ -257,7 +276,14 @@ function update_player_menu()
   miner_settings.max_angular_velocity = mid(0, values[3], max_values[3])
   miner_settings.max_friction = mid(0, values[4], max_values[4])
   miner_settings.kp_1 = mid(0, values[5], max_values[5])
-  miner_settings.kp_2 = mid(0, values[6], max_values[5])
+  miner_settings.kp_2 = mid(0, values[6], max_values[6])
+
+  upgrade_maximums.max_velocity = max_values[1]
+  upgrade_maximums.max_acceleration = max_values[2]
+  upgrade_maximums.max_angular_velocity = max_values[3]
+  upgrade_maximums.max_friction = max_values[4]
+  upgrade_maximums.kp_1 = max_values[5]
+  upgrade_maximums.kp_2 = max_values[6]
 end
 
 -->8

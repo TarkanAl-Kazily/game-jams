@@ -1,14 +1,3 @@
-
-_state_limits = {
-    velocity={10, 20, 30, 40}
-}
-
-_control_limits = {
-    acceleration={5, 10, 15, 20},
-    friction={0.0, 0.05, 0.1, 0.2},
-    angular_velocity={0.25, 0.5, 0.75, 1.0}
-}
-
 miner_settings = {
     max_velocity = 10,
     max_acceleration=5,
@@ -25,6 +14,10 @@ upgrade_maximums = {
     max_friction=1.0,
     kp_1=1.0,
     kp_2=1.0
+}
+
+upgrade_amounts = {
+    5.0, 2.5, 0.25, 0.1
 }
 
 -- a list of targets for miners to cycle between

@@ -102,5 +102,8 @@ function draw_menu()
         rectfill(top_x, top_y, top_x + 127 * values[i] / max_values[i], top_y + 15, 11)
         rect(top_x, top_y, top_x + 127, top_y + 15, 1)
         print(player_menu.entries[i], top_x + 3, top_y + 3, player_menu.menu_item == i and 10 or 8)
+        if i+1 <= #upgrade_costs then
+            print(upgrade_costs[i+1], top_x + 125 - 4 * #tostr(upgrade_costs[i+1]), top_y + 3, player_menu.menu_item == i and 10 or 8)
+        end
     end
 end
