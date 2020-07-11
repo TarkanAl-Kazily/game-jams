@@ -16,6 +16,7 @@ function new_entity()
     result.control = create_control()
     result.limits = nil
     result.type = nil
+    result.radius = 3
     return result
 end
 
@@ -66,30 +67,34 @@ function new_zone()
   result.color = 11
   result.point = 0
   result.point_growth = 1.0
+  result.point_cap = 100
   return result
 end
 
 -- Creates multiple random zone type entities
 function generate_zones()
-  srand(seed_zones)
   local result = {}
   for i=1, 32 do
     local zone = new_zone()
     zone.state.q = {x=rnd_between(world_bounds.min.x, world_bounds.max.x), y=rnd_between(world_bounds.min.y, world_bounds.max.y), d=0}
     size = flr(rnd(10))
-    if size < 1 then
+    if size < 2 then
       -- large planet
       zone.radius = 30
       zone.color = 3
+      zone.point_growth = 1.5
+      zone.point_cap = 200
     elseif size < 5 then
       -- medium planet
       zone.radius = 15
       zone.color = 13
-      zone.point_growth = 3.0
+      zone.point_growth = 2.0
+      zone.point_cap = 100
     else
       zone.radius = 5
       zone.color = 5
-      zone.point_growth = 5.0
+      zone.point_growth = 3.0
+      zone.point_cap = 50
     end
     local add_zone = true
     for j=1, #result do
@@ -108,7 +113,6 @@ end
 
 -- creates a starry background. should be called once
 function generate_background()
-  srand(seed_background)
   local result = {}
   for i=1,128 do
     local star = {x=rnd_between(world_bounds.min.x, world_bounds.max.x), y=rnd_between(world_bounds.min.y, world_bounds.max.y), c=flr(rnd(3)), t=flr(rnd(4))}

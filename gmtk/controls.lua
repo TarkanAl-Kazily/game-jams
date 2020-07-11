@@ -114,8 +114,34 @@ function modify_miner_path()
             break
         end
     end
+    if zone == nil then
+        return false
+    end
     local removed = del(miner_targets, zone)
     if removed == nil then
         add(miner_targets, zone)
     end
+    return true
+end
+
+function switch_to_ship()
+    local ship = nil
+    for i=1, #entities do
+        local e = entities[i]
+        if e.type == "miner" and overlap(e, player_camera) then
+            ship = e
+            break
+        end
+    end
+    if ship == nil then
+        return false
+    end
+    player = ship
+    ship.type = "player"
+    return true
+end
+
+function switch_from_ship()
+    player.type = "miner"
+    player = nil
 end

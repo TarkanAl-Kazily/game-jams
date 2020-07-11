@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space clicker v0_9
+-- space clicker v0_11
 -- tarkan al-kazily
 
 #include objects.lua
@@ -13,7 +13,7 @@ time = 0.0
 score = 0
 miner_count = 0
 entities = {}
-player_camera = {type="meta", state={q={x=64, y=64}}}
+player_camera = {type="meta", state={q={x=64, y=64}}, radius=1}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
 background = nil
@@ -21,15 +21,12 @@ zones = nil
 seed_background = 42
 seed_zones = 48
 
-player_mode = "ship"
+player_mode = "manager"
 
 function _init()
   background = generate_background()
   entities = generate_zones()
-  player = new_player()
-  player.state.q = {x=10, y=10, d=0}
   miner = new_miner()
-  add(entities, player)
   add(entities, miner)
 end
 
@@ -73,12 +70,16 @@ function _draw()
     draw_miner_path()
   end
 
-  print("[ score : "..flr(score).." ]", camera_pos.x, camera_pos.y, 2)
-  print("[ miners : "..miner_count.." ]", camera_pos.x, camera_pos.y + 6, 2)
+
+  msg = "ore : "..flr(score)
+  rect(camera_pos.x, camera_pos.y, camera_pos.x + 6 + 4 * #msg, camera_pos.y + 10, 1)
+  print(msg, camera_pos.x + 3, camera_pos.y+ 3, 2)
 
 
-  line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
-  line(player_camera.state.q.x, player_camera.state.q.y - 4, player_camera.state.q.x, player_camera.state.q.y + 4, 8)
+  if player_mode == "manager" then
+    line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
+    line(player_camera.state.q.x, player_camera.state.q.y - 4, player_camera.state.q.x, player_camera.state.q.y + 4, 8)
+  end
   line(-128, -128, -128, 254, 1)
   line(254, 254)
   line(254, -128)
@@ -119,10 +120,10 @@ end
 function update_entity(e)
   update_state(e.state, e.control, e.limits, _delta_t)
   if (e.state.q.x < world_bounds.min.x) or (e.state.q.y < world_bounds.min.y) then
-    e.state = create_state(nil, nil, nil)
+    del(entities, e)
   end
   if (e.state.q.x > world_bounds.max.x) or (e.state.q.y > world_bounds.max.y) then
-    e.state = create_state(nil, nil, nil)
+    del(entities, e)
   end
 
   if e.type == "miner" then
@@ -140,16 +141,16 @@ end
 
 
 function update_zone(zone)
-  zone.point = min(100, zone.point + zone.point_growth * _delta_t)
+  zone.point = min(zone.point_cap, zone.point + zone.point_growth * _delta_t)
 end
 
 function update_points(ship)
   for i=1,#entities do
     e = entities[i]
     if (e.type == "zone") and overlap(e, ship) then
-      --printh(e.state.q.x..","..e.state.q.y..","..e.radius)
-      score += e.point
-      e.point = 0
+      local pts = flr(e.point)
+      score += pts
+      e.point -= pts
     end
   end
 end
@@ -161,16 +162,24 @@ function update_player()
   if player_mode == "ship" then
     update_player_control()
     update_camera()
-    if btnp(4) then
+    if btnp(5) then
+      switch_from_ship()
       player_mode = "manager"
     end
   else
     control_camera()
-    if btnp(4) then
-      player_mode = "ship"
-    end
     if btnp(5) then
-      modify_miner_path()
+      local affected_miner_path = modify_miner_path()
+      if not affected_miner_path and switch_to_ship() then
+        player_mode = "ship"
+      end
+    end
+  end
+
+  if btnp(4) then
+    if score > 100 then
+      score -= 100
+      add(entities, new_miner())
     end
   end
 end
@@ -217,13 +226,7 @@ end
 
 function overlap(e1, e2)
   local dx, dy = e1.state.q.x - e2.state.q.x, e1.state.q.y - e2.state.q.y
-  local sum_radius = 0
-  if e1.type == "zone" then
-    sum_radius += e1.radius
-  end
-  if e2.type == "zone" then
-    sum_radius += e2.radius
-  end
+  local sum_radius = e1.radius + e2.radius
   if abs(dx) > sum_radius or abs(dy) > sum_radius then
     return false
   end
