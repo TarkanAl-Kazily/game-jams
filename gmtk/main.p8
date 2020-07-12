@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space controller v1_5
+-- space controller v1_6
 -- tarkan al-kazily
 
 #include objects.lua
@@ -10,11 +10,13 @@ __lua__
 
 _delta_t = 1.0 / 60.0
 time = 0.0
+max_time = -1
 score = 0
 total_score = 0
 miner_count = 1
 ship_cost = 100
 entities = {}
+game_entities = {}
 player_camera = {type="meta", state={q={x=64, y=64}}, radius=1}
 player_menu = {entries={"max speed", "max thrust", "max turning", "Kp dx", "Kd dx", "Kp dy", "Kd dy"}, menu_item=-1, action_select=1, actions={"clear", "scatter", "search"}}
 camera_pos = {x=0, y=0}
@@ -23,6 +25,9 @@ background = nil
 zones = nil
 seed_background = 42
 seed_zones = 48
+game_over = false
+
+title = {active=true, menu_item=1, menu_items={"endless", "timed", "fixed ships", "instructions"}, tutorial_screen=0, num_tutorial_screens=5}
 
 upgrade_costs = {0, 25, 25, 25}
 
@@ -32,24 +37,89 @@ player_mode = "manager"
 function _init()
   last_time_pts_sfx = time
   background = generate_background()
-  entities = generate_zones()
+  game_entities = generate_zones()
+  z1 = new_zone()
+  z1.state.q = {x = 22, y = 18, d = 0}
+  z1.color = 5
+  z1.radius = 5
+  z1.point_growth = 4.0
+  z1.point_cap = 50
+  z2 = new_zone()
+  z2.state.q = {x = 100, y = 64, d = 0}
+  z2.color = 13
+  z2.radius = 15
+  z2.point_growth = 3.0
+  z2.point_cap = 100
+  miner_targets = {z1, z2}
+  add(entities, z1)
+  add(entities, z2)
+  add(entities, new_miner())
+end
+
+function init_endless()
+  miner_targets={}
+  entities = game_entities
+  miner = new_miner()
+  miner.state.q = {x=50, y=50, d=0}
+  add(entities, miner)
+  title.active = false
+end
+
+function init_timed()
+  miner_targets={}
+  entities = game_entities
+  max_time = 60 * 3
 
   miner = new_miner()
   miner.state.q = {x=50, y=50, d=0}
   add(entities, miner)
+  title.active = false
+end
 
+function init_fixed_ships()
+  miner_targets={}
+  entities = game_entities
+  for i=1,10 do
+    add(entities, new_miner())
+  end
+  miner_count = 10
+  upgrade_costs[1] = -1
+  title.active = false
 end
 
 function _update60()
-  update_player()
-  update_ship_cost()
-  if player_mode != "menu" then
-    time += _delta_t
+  if title.active then
+    update_title()
     update_entities()
+    time += _delta_t
+  elseif not game_over then
+    update_player()
+    update_ship_cost()
+    if player_mode != "menu" then
+      time += _delta_t
+      update_entities()
 
-    if rnd(100) < 0.5 then
-      add(entities, new_moving_zone())
+      if rnd(100) < 0.5 then
+        add(entities, new_moving_zone())
+      end
     end
+    check_game_over()
+  else
+      time += _delta_t
+      if btn() > 0 and time - last_game_over_check > 5 then
+        extcmd("reset")
+      end
+  end
+end
+
+function check_game_over()
+  last_game_over_check = time
+  if upgrade_costs[1] < 0 then
+    game_over = (miner_count <= 0)
+  elseif max_time > 0 then
+    game_over = (time >= max_time)
+  else
+    game_over = false
   end
 end
 
@@ -78,21 +148,12 @@ function _draw()
   cls()
 
   draw_background()
-  camera(camera_pos.x, camera_pos.y)
-  if player_mode == "menu" then
-    draw_menu()
-  else
-
-    -- the cookie
+  if title.active then
     for i=1,#entities do
       local e = entities[i]
       if e.type == "zone" then
         draw_entity(e)
       end
-    end
-
-    if player_mode == "manager" or player_mode == "ship" then
-      draw_miner_path()
     end
 
     for i=1,#entities do
@@ -102,41 +163,67 @@ function _draw()
       end
     end
 
-    local top_x, top_y = camera_pos.x, camera_pos.y
-    -- score box
-    msg = "ore: "..flr(score)
-    rectfill(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 0)
-    rect(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 1)
-    print(msg, top_x + 3, top_y+ 3, 8)
+    draw_title()
+  else
 
-    -- total score box
-    local total_score_pos = 64
-    msg = tostr(flr(total_score))
-    box_width = 24
-    rectfill(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 0)
-    rect(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 1)
-    print(msg, top_x + total_score_pos - (4 * #msg) / 2.0 + 1, top_y + 3, 8)
+    camera(camera_pos.x, camera_pos.y)
+    if player_mode == "menu" then
+      draw_menu()
+    else
 
-    -- timer box
-    local m, s = flr(time / 60), flr(time % 60)
-    msg = m..":"..s
-    if s < 10 then
-      msg = m..":0"..s
+      -- the cookie
+      for i=1,#entities do
+        local e = entities[i]
+        if e.type == "zone" then
+          draw_entity(e)
+        end
+      end
+
+      if player_mode == "manager" or player_mode == "ship" then
+        draw_miner_path()
+      end
+
+      for i=1,#entities do
+        local e = entities[i]
+        if e.type != "zone" then
+          draw_entity(e)
+        end
+      end
+
+      local top_x, top_y = camera_pos.x, camera_pos.y
+      -- score box
+      msg = "ships: "..miner_count
+      rectfill(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 0)
+      rect(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 1)
+      print(msg, top_x + 3, top_y+ 3, 8)
+
+      -- total score box
+      local total_score_pos = 64
+      msg = tostr(flr(total_score))
+      box_width = 24
+      rectfill(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 0)
+      rect(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 1)
+      print(msg, top_x + total_score_pos - (4 * #msg) / 2.0 + 1, top_y + 3, 8)
+
+      -- timer box
+      local m, s = flr(time / 60), flr(time % 60)
+      msg = m..":"..s
+      if s < 10 then
+        msg = m..":0"..s
+      end
+      rectfill(top_x + 127, top_y, top_x + 123 - 4 * #msg, top_y + 10, 0)
+      rect(top_x + 127, top_y, top_x + 123 - 4 * #msg, top_y + 10, 1)
+      print(msg, top_x + 126 - 4 * #msg, top_y+ 3, 8)
+
+      if player_mode == "manager" then
+        line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
+        line(player_camera.state.q.x, player_camera.state.q.y - 4, player_camera.state.q.x, player_camera.state.q.y + 4, 8)
+      end
+      line(-128, -128, -128, 254, 1)
+      line(254, 254)
+      line(254, -128)
+      line(-128, -128)
     end
-    rectfill(top_x + 127, top_y, top_x + 123 - 4 * #msg, top_y + 10, 0)
-    rect(top_x + 127, top_y, top_x + 123 - 4 * #msg, top_y + 10, 1)
-    print(msg, top_x + 126 - 4 * #msg, top_y+ 3, 8)
-
-
-
-    if player_mode == "manager" then
-      line(player_camera.state.q.x - 4, player_camera.state.q.y, player_camera.state.q.x + 4, player_camera.state.q.y, 8)
-      line(player_camera.state.q.x, player_camera.state.q.y - 4, player_camera.state.q.x, player_camera.state.q.y + 4, 8)
-    end
-    line(-128, -128, -128, 254, 1)
-    line(254, 254)
-    line(254, -128)
-    line(-128, -128)
   end
 end
 
@@ -173,7 +260,7 @@ end
 -- applies movement physics
 function update_entity(e)
   update_state(e.state, e.control, e.limits, _delta_t)
-  if (e.state.q.x < world_bounds.min.x - e.radius) or (e.state.q.y < world_bounds.min.y - e.radius) or (e.state.q.x > world_bounds.max.x + e.radius) or (e.state.q.y > world_bounds.max.y + e.radius) then
+  if out_of_bounds(e) then
     if e.type == "miner" or e.type == "player" then
       miner_count -= 1
     end
@@ -196,7 +283,7 @@ function update_entity(e)
     update_zone(e)
   end
 
-  if e.type == "player" or e.type == "miner" then
+  if (e.type == "player" or e.type == "miner") then
     update_points(e)
   end
 end
@@ -221,8 +308,10 @@ function update_points(ship)
         sfx(0)
         last_time_pts_sfx = time
       end
-      score += min(pts, 1)
-      total_score += min(pts, 1)
+      if not title.active then
+        score += min(pts, 1)
+        total_score += min(pts, 1)
+      end
       e.point -= min(pts, 1)
     end
   end
@@ -230,6 +319,45 @@ end
 
 -->8
 -- player code
+
+function update_title()
+  if title.tutorial_screen == 0 then
+    if btnp(2) then
+      title.menu_item -= 1
+    end
+    if btnp(3) then
+      title.menu_item += 1
+    end
+    if btnp(4) or btnp(5) then
+      -- activate game
+      if title.menu_item == 1 then
+        -- endless
+        init_endless()
+        title.active = false
+      elseif title.menu_item == 2 then
+        -- timed
+        init_timed()
+        title.active = false
+      elseif title.menu_item == 3 then
+        -- fixed ships
+        init_fixed_ships()
+        title.active = false
+      elseif title.menu_item == 4 then
+        -- tutorial
+      end
+    end
+
+    title.menu_item = mid(1, title.menu_item, #title.menu_items)
+  else
+    if btnp(4) or btnp(5) then
+      title.tutorial_screen += 1
+    end
+
+    if title.tutorial_screen == 5 then
+      title.tutorial_screen = 0
+    end
+  end
+end
 
 function update_player()
   if player_mode == "ship" then
@@ -285,11 +413,10 @@ function update_player_control()
 end
 
 function update_ship_cost()
-  ship_cost = 75 + miner_count * 25
-  if miner_count == 0 then
-    ship_cost = 0
+  if upgrade_costs[1] >= 0 then
+    ship_cost = miner_count * 100
+    upgrade_costs[1] = ship_cost
   end
-  upgrade_costs[1] = ship_cost
 end
 
 function update_player_menu()
@@ -315,13 +442,10 @@ function update_player_menu()
         miners_scatter()
       end
 
-      if player_menu.action_select == 3 then
-        miners_search()
-      end
     elseif player_menu.menu_item < #upgrade_costs then
       if score > upgrade_costs[player_menu.menu_item+1] then
         if player_menu.menu_item == 0 then
-          if miner_count < 10 then
+          if miner_count < 10 and upgrade_costs[1] >= 0 then
             score -= upgrade_costs[player_menu.menu_item+1]
             add(entities, new_miner())
             miner_count += 1
@@ -338,11 +462,11 @@ function update_player_menu()
   if player_menu.menu_item == -1 and btnp(0) then
     player_menu.action_select -= 1
     if player_menu.action_select == 0 then
-      player_menu.action_select = 3
+      player_menu.action_select = 2
     end
   end
   if player_menu.menu_item == -1 and btnp(1) then
-    player_menu.action_select = player_menu.action_select % 3 + 1
+    player_menu.action_select = player_menu.action_select % 2 + 1
   end
 
 
@@ -394,6 +518,10 @@ function overlap(e1, e2)
   end
   local dist = dx * dx + dy * dy
   return dist < sum_radius * sum_radius
+end
+
+function out_of_bounds(e)
+  return (e.state.q.x < world_bounds.min.x - e.radius) or (e.state.q.y < world_bounds.min.y - e.radius) or (e.state.q.x > world_bounds.max.x + e.radius) or (e.state.q.y > world_bounds.max.y + e.radius)
 end
 
 function distance_squared(p1, p2)

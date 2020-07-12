@@ -17,15 +17,14 @@ function new_miner()
     result.limits = miner_settings
     result.type = "miner"
     result.current_target = flr(rnd(#miner_targets) + 1)
+    result.zero_target_zone = nil
     return result
 end
 
 -- creates a player ship
 function new_player()
-    local result = new_entity()
-    result.limits = miner_settings
+    local result = new_miner()
     result.type = "player"
-    result.current_target = flr(rnd(#miner_targets) + 1)
     return result
 end
 

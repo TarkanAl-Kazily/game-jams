@@ -58,7 +58,7 @@ function update_state(state, control, limits, dt)
 end
 
 function update_miner_control(e)
-  if #miner_targets == 0 then
+  if e.current_target > 0 and #miner_targets == 0 then
     e.control = create_control()
     return
   end
@@ -67,14 +67,29 @@ function update_miner_control(e)
     e.current_target = 1
   end
 
-  local target_zone = miner_targets[e.current_target]
-  local target_threshold = target_zone.radius
-  local target = target_zone.state.q
-
-  if overlap(e, target_zone) then
-    e.current_target = (e.current_target % #miner_targets) + 1
+  local target_zone = nil
+  if e.current_target > 0 then
+      target_zone = miner_targets[e.current_target]
+  else
+      target_zone = e.zero_target_zone
   end
-  local dx, dy = target.x - e.state.q.x, - target.y + e.state.q.y
+
+  if overlap(e, target_zone) or out_of_bounds(target_zone) then
+      if e.current_target == 0 then
+        e.current_target = flr(rnd_between(1, #miner_targets + 1))
+      else
+        e.current_target = (e.current_target % #miner_targets) + 1
+      end
+      target_zone = miner_targets[e.current_target]
+  end
+
+  if target_zone == nil then
+    e.current_target = flr(rnd_between(1, #miner_targets + 1))
+    e.control = create_control()
+    return
+  end
+
+  local dx, dy = target_zone.state.q.x - e.state.q.x, - target_zone.state.q.y + e.state.q.y
   local dir = atan2(dx, dy)
   local vx, vy = target_zone.state.q_dot.x - e.state.q_dot.x, target_zone.state.q_dot.y - e.state.q_dot.y
   dx, dy = cos(e.state.q.d) * dx - sin(e.state.q.d) * dy, sin(e.state.q.d) * dx + cos(e.state.q.d) * dy
@@ -132,10 +147,35 @@ function switch_from_ship()
     player = nil
 end
 
-function miners_search()
-
+function miners_scatter()
+    picked_zones = {}
+    for i=1,#entities do
+        local e = entities[i]
+        if e.type == "miner" then
+            printh("Hi!")
+            e.current_target = 0
+            e.zero_target_zone = next_random_zone(picked_zones)
+            add(picked_zones, e.zero_target_zone)
+        end
+    end
 end
 
-function miners_scatter()
+-- returns one zone at random in entities that is not in removed.
+function next_random_zone(removed)
+    local start = flr(rnd_between(1, #entities + 1))
+    for i=0,#entities-1 do
+        local e = entities[(start + i) % #entities + 1]
+        if e.type == "zone" and not contains(removed, e) then
+            return e
+        end
+    end
+end
 
+function contains(list, element)
+    for i=1,#list do
+        if list[i] == element then
+            return true
+        end
+    end
+    return false
 end

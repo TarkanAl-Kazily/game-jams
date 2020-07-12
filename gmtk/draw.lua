@@ -89,7 +89,7 @@ function draw_menu()
     local top_x, top_y = camera_pos.x, camera_pos.y
     local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.kp_1, miner_settings.kd_1, miner_settings.kp_2, miner_settings.kd_2}
     local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.kp_1, upgrade_maximums.kd_1, upgrade_maximums.kp_2, upgrade_maximums.kd_2}
-    msg = "ore: "..flr(score)
+    msg = "ships: "..miner_count
     rect(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 1)
     print(msg, top_x + 3, top_y + 3, 8)
 
@@ -100,31 +100,31 @@ function draw_menu()
     rect(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 1)
     print(msg, top_x + total_score_pos - (4 * #msg) / 2.0 + 1, top_y + 3, 8)
 
-    msg = "ships: "..miner_count
+    msg = "ore: "..flr(score)
     rect(top_x + 123 - 4 * #msg, top_y, top_x + 127, top_y + 10, 1)
     print(msg, top_x + 126 - 4 * #msg, top_y + 3, 8)
 
     top_y += 13
 
     msg = player_menu.actions[1]
-    rect(top_x+1, top_y, top_x + 42, top_y + 12, 1)
-    print(msg, top_x + 2 + (20 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 1) and 10 or 8)
+    rect(top_x+2, top_y, top_x + 62, top_y + 12, 1)
+    print(msg, top_x + 3 + (30 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 1) and 10 or 8)
     msg = player_menu.actions[2]
-    rect(top_x+44, top_y, top_x + 84, top_y + 12, 1)
-    print(msg, top_x + 45 + (20 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 2) and 10 or 8)
-    msg = player_menu.actions[3]
-    rect(top_x+86, top_y, top_x + 126, top_y + 12, 1)
-    print(msg, top_x + 87 + (20 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 3) and 10 or 8)
+    rect(top_x+64, top_y, top_x + 125, top_y + 12, 1)
+    print(msg, top_x + 65 + (30 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 2) and 10 or 8)
+    --msg = player_menu.actions[3]
+    --rect(top_x+86, top_y, top_x + 126, top_y + 12, 1)
+    --print(msg, top_x + 87 + (20 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 3) and 10 or 8)
 
     top_y = camera_pos.y + 28
-    if miner_count < 10 then
+    if miner_count < 10 and upgrade_costs[1] >= 0 then
         msg = "ship cost: "..ship_cost
         print(msg, top_x + 3, top_y, 8)
 
         msg = "buy new ship"
         print(msg, top_x + 125 - 4 * #msg, top_y, player_menu.menu_item == 0 and 10 or 8)
     else
-        msg = "maximum ships reached"
+        msg = "can't buy more ships"
         print(msg, top_x + 3, top_y, player_menu.menu_item == 0 and 10 or 8)
     end
 
@@ -141,4 +141,27 @@ function draw_menu()
         end
         top_y += height
     end
+end
+
+function draw_title()
+    local x, y = 64, 24
+    local msg = "space controller"
+    print(msg, x - 2 * #msg, y, 7)
+    y += 8
+    print(msg, x - 2 * #msg, y, 7)
+    y += 8
+    print(msg, x - 2 * #msg, y, 7)
+
+    y += 16
+
+    for i=1, #title.menu_items do
+        y+=8
+        msg = title.menu_items[i]
+        print(msg, x - 2 * #msg, y, title.menu_item == i and 10 or 8)
+    end
+
+    y += 16
+
+    msg = "press Z/X to select"
+    print(msg, x - 2 * #msg, y, 7)
 end
