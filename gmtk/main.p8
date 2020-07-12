@@ -1,15 +1,17 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space controller v1_6
+-- space controller v1_7
 -- tarkan al-kazily
 
 #include objects.lua
 #include controls.lua
 #include draw.lua
 
+
 _delta_t = 1.0 / 60.0
 time = 0.0
+last_game_over_check = 0.0
 max_time = -1
 score = 0
 total_score = 0
@@ -18,7 +20,7 @@ ship_cost = 100
 entities = {}
 game_entities = {}
 player_camera = {type="meta", state={q={x=64, y=64}}, radius=1}
-player_menu = {entries={"max speed", "max thrust", "max turning", "Kp dx", "Kd dx", "Kp dy", "Kd dy"}, menu_item=-1, action_select=1, actions={"clear", "scatter", "search"}}
+player_menu = {entries={"max speed", "max thrust", "max turning", "throttle gain", "counter overshoot", "aim straight", "counter orbiting"}, menu_item=-1, action_select=1, actions={"clear", "scatter", "search"}}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
 background = nil
@@ -58,6 +60,7 @@ end
 
 function init_endless()
   miner_targets={}
+  time = 0
   entities = game_entities
   miner = new_miner()
   miner.state.q = {x=50, y=50, d=0}
@@ -67,6 +70,7 @@ end
 
 function init_timed()
   miner_targets={}
+  time = 0
   entities = game_entities
   max_time = 60 * 3
 
@@ -78,6 +82,7 @@ end
 
 function init_fixed_ships()
   miner_targets={}
+  time = 0
   entities = game_entities
   for i=1,10 do
     add(entities, new_miner())
@@ -120,6 +125,10 @@ function check_game_over()
     game_over = (time >= max_time)
   else
     game_over = false
+  end
+
+  if game_over then
+    player_mode = "ship"
   end
 end
 
@@ -206,7 +215,8 @@ function _draw()
       print(msg, top_x + total_score_pos - (4 * #msg) / 2.0 + 1, top_y + 3, 8)
 
       -- timer box
-      local m, s = flr(time / 60), flr(time % 60)
+      local t = (game_over and last_game_over_check) or time
+      local m, s = flr(t / 60), flr(t % 60)
       msg = m..":"..s
       if s < 10 then
         msg = m..":0"..s
@@ -223,6 +233,18 @@ function _draw()
       line(254, 254)
       line(254, -128)
       line(-128, -128)
+    end
+  end
+
+  if game_over then
+    local top_x, top_y = camera_pos.x + 64, camera_pos.y + 48
+    local msg = "game over"
+    print(msg, top_x - 2 * #msg, top_y, 7)
+    
+    top_y += 16
+    if time - last_game_over_check > 3 then
+    msg = "press any button to restart"
+    print(msg, top_x - 2 * #msg, top_y, (flr(time * 4) % 2 == 0 and 5 or 7))
     end
   end
 end
@@ -344,6 +366,7 @@ function update_title()
         title.active = false
       elseif title.menu_item == 4 then
         -- tutorial
+        title.tutorial_screen = 1
       end
     end
 
@@ -353,7 +376,7 @@ function update_title()
       title.tutorial_screen += 1
     end
 
-    if title.tutorial_screen == 5 then
+    if title.tutorial_screen == 4 then
       title.tutorial_screen = 0
     end
   end

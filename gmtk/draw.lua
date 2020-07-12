@@ -144,24 +144,73 @@ function draw_menu()
 end
 
 function draw_title()
-    local x, y = 64, 24
-    local msg = "space controller"
-    print(msg, x - 2 * #msg, y, 7)
-    y += 8
-    print(msg, x - 2 * #msg, y, 7)
-    y += 8
-    print(msg, x - 2 * #msg, y, 7)
+    if title.tutorial_screen == 0 then
+        local x, y = 64, 24
+        local msg = "space controller"
+        print(msg, x - 2 * #msg, y, (flr(time * 2) % 2 == 0) and 7 or 6)
+        y += 8
+        print(msg, x - 2 * #msg, y, (flr(time * 2) % 2 == 0) and 6 or 7)
+        y += 8
+        print(msg, x - 2 * #msg, y, (flr(time * 2) % 2 == 0) and 7 or 6)
 
-    y += 16
+        y += 16
 
-    for i=1, #title.menu_items do
-        y+=8
-        msg = title.menu_items[i]
-        print(msg, x - 2 * #msg, y, title.menu_item == i and 10 or 8)
+        for i=1, #title.menu_items do
+            y+=8
+            msg = title.menu_items[i]
+            print(msg, x - 2 * #msg, y, title.menu_item == i and 10 or 8)
+        end
+
+        y=104
+        msg = "press ❎/🅾️ to select  "
+        print(msg, x - 2 * #msg, y, 8)
+    elseif title.tutorial_screen == 1 then
+        local x, y = 4, 16
+        print("manage out of control ships\nto collect ore", x, y, 10)
+        y+=20
+
+        print("in endless you can play\nwithout losing", x, y, 7)
+        y+=18
+        print("in timed you have 3 minutes\nto max out your score", x, y, 7)
+        y+=18
+        print("in fixed ships you get\n10 miners, and thats it", x, y, 7)
+        y+=18
+        print("you gain points whenever\nminers move over planets", x, y, 7)
+
+        y=112
+        msg = "press ❎/🅾️ to continue "
+        print(msg, 64 - 2 * #msg, y, 8)
+    elseif title.tutorial_screen == 2 then
+        local x, y = 4, 16
+        print("by moving your cursor over\nplanets and pressing ❎,\nyou add that planet as a\nwaypoint for your miners", x, y, 7)
+        y+=30
+
+        print("miners automatically navigate \nfrom waypoint to waypoint", x, y, 7)
+        y+=16
+        print("by moving your cursor over\na miner instead, you can\nmanually control that miner", x, y, 7)
+        y+=22
+        print("press ❎ to exit the miner", x, y, 7)
+
+        y=112
+        msg = "press ❎/🅾️ to continue "
+        print(msg, 64 - 2 * #msg, y, 8)
+    elseif title.tutorial_screen == 3 then
+        local x, y = 4, 16
+        print("pressing 🅾️ toggles the\ntuning menu", x, y, 7)
+        y+=16
+
+        print("here you can buy new miners,\nupgrade the controls,\nand tune miner parameters", x, y, 7)
+        y+=22
+        print("upgrading the controls\nincreases the max speed", x, y, 7)
+        y+=16
+        print("the first two params affect\nhow much miners throttle", x, y, 7)
+        y+=16
+        print("the second two params affect\nhow fast miners turn", x, y, 7)
+
+        y=112
+        msg = "press ❎/🅾️ to continue "
+        print(msg, 64 - 2 * #msg, y, 8)
     end
-
-    y += 16
-
-    msg = "press Z/X to select"
-    print(msg, x - 2 * #msg, y, 7)
 end
+
+
