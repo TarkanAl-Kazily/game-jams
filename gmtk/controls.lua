@@ -1,25 +1,25 @@
 miner_settings = {
-    max_velocity = 10,
-    max_acceleration=5,
+    max_velocity = 30,
+    max_acceleration=10,
     max_angular_velocity=0.25,
-    kp_1=10,
-    kp_2=10.0,
-    kd_1=2.0,
-    kd_2=2.0,
+    kp_1=30.0,
+    kd_1=3.0,
+    kp_2=3.0,
+    kd_2=5.0,
 }
 
 upgrade_maximums = {
-    max_velocity = 10,
-    max_acceleration=5,
+    max_velocity = 30,
+    max_acceleration=10,
     max_angular_velocity=0.25,
     kp_1=100.0,
+    kd_1=50.0,
     kp_2=100.0,
-    kd_1=10.0,
-    kd_2=10.0
+    kd_2=50.0
 }
 
 upgrade_amounts = {
-    5.0, 2.5, 0.25, 0.1
+    5.0, 2.5, 0.125
 }
 
 -- a list of targets for miners to cycle between
@@ -130,4 +130,12 @@ end
 function switch_from_ship()
     player.type = "miner"
     player = nil
+end
+
+function miners_search()
+
+end
+
+function miners_scatter()
+
 end

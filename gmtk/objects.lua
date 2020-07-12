@@ -12,10 +12,11 @@ end
 -- creates a miner ship
 function new_miner()
     local result = new_entity()
+    result.state.q.x = rnd_between(32, 96)
+    result.state.q.y = rnd_between(32, 96)
     result.limits = miner_settings
     result.type = "miner"
-    result.current_target = 1
-    result.target_threshold = 25
+    result.current_target = flr(rnd(#miner_targets) + 1)
     return result
 end
 
@@ -24,6 +25,7 @@ function new_player()
     local result = new_entity()
     result.limits = miner_settings
     result.type = "player"
+    result.current_target = flr(rnd(#miner_targets) + 1)
     return result
 end
 

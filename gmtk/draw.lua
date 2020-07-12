@@ -104,20 +104,40 @@ function draw_menu()
     rect(top_x + 123 - 4 * #msg, top_y, top_x + 127, top_y + 10, 1)
     print(msg, top_x + 126 - 4 * #msg, top_y + 3, 8)
 
-    msg = "ship cost: "..ship_cost
-    print(msg, top_x + 3, top_y + 20, 8)
+    top_y += 13
 
-    msg = "buy new ship"
-    print(msg, top_x + 125 - 4 * #msg, top_y + 20, player_menu.menu_item == 0 and 10 or 8)
+    msg = player_menu.actions[1]
+    rect(top_x+1, top_y, top_x + 42, top_y + 12, 1)
+    print(msg, top_x + 2 + (20 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 1) and 10 or 8)
+    msg = player_menu.actions[2]
+    rect(top_x+44, top_y, top_x + 84, top_y + 12, 1)
+    print(msg, top_x + 45 + (20 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 2) and 10 or 8)
+    msg = player_menu.actions[3]
+    rect(top_x+86, top_y, top_x + 126, top_y + 12, 1)
+    print(msg, top_x + 87 + (20 - 2 * #msg), top_y + 4, (player_menu.menu_item == -1 and player_menu.action_select == 3) and 10 or 8)
 
-    top_y += 35
+    top_y = camera_pos.y + 28
+    if miner_count < 10 then
+        msg = "ship cost: "..ship_cost
+        print(msg, top_x + 3, top_y, 8)
+
+        msg = "buy new ship"
+        print(msg, top_x + 125 - 4 * #msg, top_y, player_menu.menu_item == 0 and 10 or 8)
+    else
+        msg = "maximum ships reached"
+        print(msg, top_x + 3, top_y, player_menu.menu_item == 0 and 10 or 8)
+    end
+
+
+    top_y += 8
     local height = 13
     for i = 1, 7 do
         rectfill(top_x, top_y, top_x + 127 * values[i] / max_values[i], top_y + height, 11)
         rect(top_x, top_y, top_x + 127, top_y + height, 1)
         print(player_menu.entries[i].." "..values[i], top_x + 3, top_y + 3, player_menu.menu_item == i and 10 or 8)
         if i+1 <= #upgrade_costs then
-            print(upgrade_costs[i+1], top_x + 125 - 4 * #tostr(upgrade_costs[i+1]), top_y + 3, player_menu.menu_item == i and 10 or 8)
+            local msg = "upgrade: "..upgrade_costs[i+1]
+            print(msg, top_x + 125 - 4 * #msg, top_y + 3, player_menu.menu_item == i and 10 or 8)
         end
         top_y += height
     end

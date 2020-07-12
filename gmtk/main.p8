@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space controller v1_4
+-- space controller v1_5
 -- tarkan al-kazily
 
 #include objects.lua
@@ -16,7 +16,7 @@ miner_count = 1
 ship_cost = 100
 entities = {}
 player_camera = {type="meta", state={q={x=64, y=64}}, radius=1}
-player_menu = {entries={"max speed", "max thrust", "max turning", "Kp dx", "Kd dx", "Kp dy", "Kd dy"}, menu_item=0}
+player_menu = {entries={"max speed", "max thrust", "max turning", "Kp dx", "Kd dx", "Kp dy", "Kd dy"}, menu_item=-1, action_select=1, actions={"clear", "scatter", "search"}}
 camera_pos = {x=0, y=0}
 world_bounds = {min={x=-128, y=-128}, max={x=255, y=255}}
 background = nil
@@ -24,7 +24,7 @@ zones = nil
 seed_background = 42
 seed_zones = 48
 
-upgrade_costs = {0, 100, 100, 100}
+upgrade_costs = {0, 25, 25, 25}
 
 -- valid modes: ship, manager, menu
 player_mode = "manager"
@@ -247,7 +247,6 @@ function update_player()
       if switch_to_ship() then
         player_mode = "ship"
       elseif not modify_miner_path() then
-        miner_targets = {}
       end
     elseif btnp(4) then
       player_mode = "menu"
@@ -303,23 +302,50 @@ function update_player_menu()
   if btnp(3) then
     player_menu.menu_item += 1
   end
-  player_menu.menu_item = mid(0, player_menu.menu_item, #player_menu.entries)
+  player_menu.menu_item = mid(-1, player_menu.menu_item, #player_menu.entries)
 
 
   if btnp(5) then
-    if player_menu.menu_item < #upgrade_costs then
+    if player_menu.menu_item < 0 then
+      if player_menu.action_select == 1 then
+        miner_targets = {}
+      end
+
+      if player_menu.action_select == 2 then
+        miners_scatter()
+      end
+
+      if player_menu.action_select == 3 then
+        miners_search()
+      end
+    elseif player_menu.menu_item < #upgrade_costs then
       if score > upgrade_costs[player_menu.menu_item+1] then
-        score -= upgrade_costs[player_menu.menu_item+1]
         if player_menu.menu_item == 0 then
-          add(entities, new_miner())
-          miner_count += 1
+          if miner_count < 10 then
+            score -= upgrade_costs[player_menu.menu_item+1]
+            add(entities, new_miner())
+            miner_count += 1
+          end
         else
+          score -= upgrade_costs[player_menu.menu_item+1]
           max_values[player_menu.menu_item] += upgrade_amounts[player_menu.menu_item]
           upgrade_costs[player_menu.menu_item+1] += 25
         end
       end
     end
   end
+
+  if player_menu.menu_item == -1 and btnp(0) then
+    player_menu.action_select -= 1
+    if player_menu.action_select == 0 then
+      player_menu.action_select = 3
+    end
+  end
+  if player_menu.menu_item == -1 and btnp(1) then
+    player_menu.action_select = player_menu.action_select % 3 + 1
+  end
+
+
 
   if player_menu.menu_item > 0 and btn(0) then
     values[player_menu.menu_item] -= 0.01 * max_values[player_menu.menu_item]
@@ -329,9 +355,9 @@ function update_player_menu()
     values[player_menu.menu_item] += 0.01 * max_values[player_menu.menu_item]
   end
 
-  miner_settings.max_velocity = mid(0, values[1], max_values[1])
-  miner_settings.max_acceleration = mid(0, values[2], max_values[2])
-  miner_settings.max_angular_velocity = mid(0, values[3], max_values[3])
+  miner_settings.max_velocity = max_values[1]
+  miner_settings.max_acceleration = max_values[2]
+  miner_settings.max_angular_velocity = max_values[3]
   miner_settings.kp_1 = mid(0, values[4], max_values[4])
   miner_settings.kd_1 = mid(0, values[5], max_values[5])
   miner_settings.kp_2 = mid(0, values[6], max_values[6])
