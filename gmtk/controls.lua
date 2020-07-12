@@ -53,7 +53,7 @@ function update_state(state, control, limits, dt)
     state.q_ddot.d = 0
 
     if control.acceleration > 0 then
-        sfx(1)
+        --sfx(1)
     end
 end
 
@@ -148,16 +148,21 @@ function switch_from_ship()
 end
 
 function miners_scatter()
-    picked_zones = {}
-    for i=1,#entities do
+    for i = 1, #entities do
         local e = entities[i]
         if e.type == "miner" then
-            printh("Hi!")
-            e.current_target = 0
-            e.zero_target_zone = next_random_zone(picked_zones)
-            add(picked_zones, e.zero_target_zone)
+            e.current_target = flr(rnd(#miner_targets)) + 1
         end
     end
+    --picked_zones = {}
+    --for i=1,#entities do
+    --    local e = entities[i]
+    --    if e.type == "miner" then
+    --        e.current_target = 0
+    --        e.zero_target_zone = next_random_zone(picked_zones)
+    --        add(picked_zones, e.zero_target_zone)
+    --    end
+    --end
 end
 
 -- returns one zone at random in entities that is not in removed.
