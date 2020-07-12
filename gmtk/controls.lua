@@ -2,7 +2,6 @@ miner_settings = {
     max_velocity = 10,
     max_acceleration=5,
     max_angular_velocity=0.25,
-    max_friction=0.0,
     kp_1=10,
     kp_2=10.0,
     kd_1=2.0,
@@ -10,10 +9,9 @@ miner_settings = {
 }
 
 upgrade_maximums = {
-    max_velocity = 20,
-    max_acceleration=10,
-    max_angular_velocity=2.0,
-    max_friction=1.0,
+    max_velocity = 10,
+    max_acceleration=5,
+    max_angular_velocity=0.25,
     kp_1=100.0,
     kp_2=100.0,
     kd_1=10.0,
@@ -28,7 +26,7 @@ upgrade_amounts = {
 miner_targets = {}
 
 -- state given by create_state
--- control takes the form {angular_velocity, acceleration, friction}
+-- control takes the form {angular_velocity, acceleration
 function update_state(state, control, limits, dt)
     -- q.x, q.y, q.d based directly off of q_dot.x, q_dot.y, q_dot.d
     state.q.x += state.q_dot.x * dt
@@ -47,9 +45,9 @@ function update_state(state, control, limits, dt)
         state.q_dot.y = mid(-limits.max_velocity * sin(vel_dir), state.q_dot.y, limits.max_velocity * sin(vel_dir))
     end
 
-    -- q_ddot.x and q_ddot.y based off of control, q.d, and control friction
-    state.q_ddot.x = cos(state.q.d) * (rnd(0.3) + rnd(0.3) + 0.7) * control.acceleration - state.q_dot.x * control.friction
-    state.q_ddot.y = sin(state.q.d) * (rnd(0.3) + rnd(0.3) + 0.7) * control.acceleration - state.q_dot.y * control.friction
+    -- q_ddot.x and q_ddot.y based off of control, q.d
+    state.q_ddot.x = cos(state.q.d) * (rnd(0.3) + rnd(0.3) + 0.7) * control.acceleration
+    state.q_ddot.y = sin(state.q.d) * (rnd(0.3) + rnd(0.3) + 0.7) * control.acceleration
 
     -- q_ddot.d unused
     state.q_ddot.d = 0
@@ -75,23 +73,21 @@ function update_miner_control(e)
 
   if overlap(e, target_zone) then
     e.current_target = (e.current_target % #miner_targets) + 1
-  else
-      local dx, dy = target.x - e.state.q.x, - target.y + e.state.q.y
-      local dir = atan2(dx, dy)
-      local vx, vy = target_zone.state.q_dot.x - e.state.q_dot.x, target_zone.state.q_dot.y - e.state.q_dot.y
-      dx, dy = cos(e.state.q.d) * dx - sin(e.state.q.d) * dy, sin(e.state.q.d) * dx + cos(e.state.q.d) * dy
-      vx, vy = cos(dir) * vx - sin(dir) * vy, sin(dir) * vx + cos(dir) * vy
-      --dx *= e.controls.kp.dx
-      --dy *= e.controls.kp.dy
-      dx = max(0, dx)
-
-      e.control.angular_velocity = miner_settings.kp_2 * dy - miner_settings.kd_2 * vy
-      e.control.acceleration = miner_settings.kp_1 * dx + miner_settings.kd_1 * vx
-
-      e.control.angular_velocity = mid(e.control.angular_velocity, miner_settings.max_angular_velocity, -miner_settings.max_angular_velocity)
-      e.control.acceleration = mid(e.control.acceleration, miner_settings.max_acceleration, -miner_settings.max_acceleration)
-      e.control.friction = mid(e.control.friction, miner_settings.max_friction, -miner_settings.max_friction)
   end
+  local dx, dy = target.x - e.state.q.x, - target.y + e.state.q.y
+  local dir = atan2(dx, dy)
+  local vx, vy = target_zone.state.q_dot.x - e.state.q_dot.x, target_zone.state.q_dot.y - e.state.q_dot.y
+  dx, dy = cos(e.state.q.d) * dx - sin(e.state.q.d) * dy, sin(e.state.q.d) * dx + cos(e.state.q.d) * dy
+  vx, vy = cos(dir) * vx - sin(dir) * vy, sin(dir) * vx + cos(dir) * vy
+  --dx *= e.controls.kp.dx
+  --dy *= e.controls.kp.dy
+  dx = max(0, dx)
+
+  e.control.angular_velocity = miner_settings.kp_2 * dy - miner_settings.kd_2 * vy
+  e.control.acceleration = miner_settings.kp_1 * dx + miner_settings.kd_1 * vx
+
+  e.control.angular_velocity = mid(e.control.angular_velocity, miner_settings.max_angular_velocity, -miner_settings.max_angular_velocity)
+  e.control.acceleration = mid(e.control.acceleration, miner_settings.max_acceleration, -miner_settings.max_acceleration)
 end
 
 function modify_miner_path()
@@ -99,8 +95,9 @@ function modify_miner_path()
     for i=1, #entities do
         local e = entities[i]
         if e.type == "zone" and overlap(e, player_camera) then
-            zone = e
-            break
+            if zone == nil or e.radius < zone.radius then
+                zone = e
+            end
         end
     end
     if zone == nil then

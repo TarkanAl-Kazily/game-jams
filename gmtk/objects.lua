@@ -42,6 +42,42 @@ function create_state(q, q_dot, q_ddot)
     return result
 end
 
+function new_moving_zone()
+  local moving_zone = new_zone()
+  local start_side, start_pos = flr(rnd(4)), rnd_between(world_bounds.min.x, world_bounds.max.x)
+  local x_vel, y_vel = rnd_between(1.0, 15.0), rnd_between(1.0, 15.0)
+  if start_side == 0 then
+      moving_zone.state.q.x = world_bounds.min.x
+      moving_zone.state.q.y = start_pos
+      moving_zone.state.q_dot.x = x_vel
+      moving_zone.state.q_dot.y = y_vel * ((rnd(1) < 0.5) and 1.0 or -1.0)
+  elseif start_side == 1 then
+      moving_zone.state.q.x = world_bounds.max.x
+      moving_zone.state.q.y = start_pos
+      moving_zone.state.q_dot.x = -x_vel
+      moving_zone.state.q_dot.y = y_vel * ((rnd(1) < 0.5) and 1.0 or -1.0)
+
+  elseif start_side == 2 then
+      moving_zone.state.q.x = start_pos
+      moving_zone.state.q.y = world_bounds.min.y
+      moving_zone.state.q_dot.x = x_vel * ((rnd(1) < 0.5) and 1.0 or -1.0)
+      moving_zone.state.q_dot.y = y_vel
+
+  elseif start_side == 3 then
+      moving_zone.state.q.x = start_pos
+      moving_zone.state.q.y = world_bounds.max.y
+      moving_zone.state.q_dot.x = x_vel * ((rnd(1) < 0.5) and 1.0 or -1.0)
+      moving_zone.state.q_dot.y = -y_vel
+  end
+
+  moving_zone.point = 25
+  moving_zone.radius = 2.5
+  moving_zone.point_growth = 10
+  moving_zone.point_cap = 25
+  moving_zone.color = 12
+  return moving_zone
+end
+
 -- fills out a control
 function create_control()
     return {angular_velocity=0, acceleration=0, friction=0}
@@ -71,18 +107,18 @@ function generate_zones()
       -- large planet
       zone.radius = 30
       zone.color = 3
-      zone.point_growth = 1.5
-      zone.point_cap = 200
+      zone.point_growth = 2.0
+      zone.point_cap = 400
     elseif size < 5 then
       -- medium planet
       zone.radius = 15
       zone.color = 13
-      zone.point_growth = 2.0
+      zone.point_growth = 3.0
       zone.point_cap = 100
     else
       zone.radius = 5
       zone.color = 5
-      zone.point_growth = 3.0
+      zone.point_growth = 4.0
       zone.point_cap = 50
     end
     local add_zone = true

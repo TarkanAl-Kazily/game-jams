@@ -90,12 +90,19 @@ function draw_menu()
     local values = {miner_settings.max_velocity, miner_settings.max_acceleration, miner_settings.max_angular_velocity, miner_settings.kp_1, miner_settings.kd_1, miner_settings.kp_2, miner_settings.kd_2}
     local max_values = {upgrade_maximums.max_velocity, upgrade_maximums.max_acceleration, upgrade_maximums.max_angular_velocity, upgrade_maximums.kp_1, upgrade_maximums.kd_1, upgrade_maximums.kp_2, upgrade_maximums.kd_2}
     msg = "ore: "..flr(score)
-    rect(top_x, top_y, top_x + 6 + 4 * #msg, top_y + 10, 1)
+    rect(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 1)
     print(msg, top_x + 3, top_y + 3, 8)
-    
+
+
+    local total_score_pos = 64
+    msg = tostr(flr(total_score))
+    box_width = 24
+    rect(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 1)
+    print(msg, top_x + total_score_pos - (4 * #msg) / 2.0 + 1, top_y + 3, 8)
+
     msg = "ships: "..miner_count
-    rect(top_x + 64, top_y, top_x + 70 + 4 * #msg, top_y + 10, 1)
-    print(msg, top_x + 67, top_y + 3, 8)
+    rect(top_x + 123 - 4 * #msg, top_y, top_x + 127, top_y + 10, 1)
+    print(msg, top_x + 126 - 4 * #msg, top_y + 3, 8)
 
     msg = "ship cost: "..ship_cost
     print(msg, top_x + 3, top_y + 20, 8)

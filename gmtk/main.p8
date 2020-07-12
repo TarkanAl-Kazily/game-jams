@@ -1,7 +1,7 @@
 pico-8 cartridge // http://www.pico-8.com
 version 29
 __lua__
--- space controller v1_2d
+-- space controller v1_4
 -- tarkan al-kazily
 
 #include objects.lua
@@ -11,6 +11,7 @@ __lua__
 _delta_t = 1.0 / 60.0
 time = 0.0
 score = 0
+total_score = 0
 miner_count = 1
 ship_cost = 100
 entities = {}
@@ -32,9 +33,11 @@ function _init()
   last_time_pts_sfx = time
   background = generate_background()
   entities = generate_zones()
+
   miner = new_miner()
   miner.state.q = {x=50, y=50, d=0}
   add(entities, miner)
+
 end
 
 function _update60()
@@ -43,6 +46,10 @@ function _update60()
   if player_mode != "menu" then
     time += _delta_t
     update_entities()
+
+    if rnd(100) < 0.5 then
+      add(entities, new_moving_zone())
+    end
   end
 end
 
@@ -95,11 +102,20 @@ function _draw()
       end
     end
 
+    local top_x, top_y = camera_pos.x, camera_pos.y
     -- score box
     msg = "ore: "..flr(score)
-    rectfill(camera_pos.x, camera_pos.y, camera_pos.x + 6 + 4 * #msg, camera_pos.y + 10, 0)
-    rect(camera_pos.x, camera_pos.y, camera_pos.x + 6 + 4 * #msg, camera_pos.y + 10, 1)
-    print(msg, camera_pos.x + 3, camera_pos.y+ 3, 8)
+    rectfill(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 0)
+    rect(top_x, top_y, top_x + 4 + 4 * #msg, top_y + 10, 1)
+    print(msg, top_x + 3, top_y+ 3, 8)
+
+    -- total score box
+    local total_score_pos = 64
+    msg = tostr(flr(total_score))
+    box_width = 24
+    rectfill(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 0)
+    rect(top_x + total_score_pos - box_width / 2, top_y, top_x + total_score_pos + box_width / 2, top_y + 10, 1)
+    print(msg, top_x + total_score_pos - (4 * #msg) / 2.0 + 1, top_y + 3, 8)
 
     -- timer box
     local m, s = flr(time / 60), flr(time % 60)
@@ -107,9 +123,9 @@ function _draw()
     if s < 10 then
       msg = m..":0"..s
     end
-    rectfill(camera_pos.x + 127, camera_pos.y, camera_pos.x + 124 - 4 * #msg, camera_pos.y + 10, 0)
-    rect(camera_pos.x + 127, camera_pos.y, camera_pos.x + 124 - 4 * #msg, camera_pos.y + 10, 1)
-    print(msg, camera_pos.x + 127 - 4 * #msg, camera_pos.y+ 3, 8)
+    rectfill(top_x + 127, top_y, top_x + 123 - 4 * #msg, top_y + 10, 0)
+    rect(top_x + 127, top_y, top_x + 123 - 4 * #msg, top_y + 10, 1)
+    print(msg, top_x + 126 - 4 * #msg, top_y+ 3, 8)
 
 
 
@@ -157,12 +173,19 @@ end
 -- applies movement physics
 function update_entity(e)
   update_state(e.state, e.control, e.limits, _delta_t)
-  if (e.state.q.x < world_bounds.min.x) or (e.state.q.y < world_bounds.min.y) then
-    miner_count -= 1
+  if (e.state.q.x < world_bounds.min.x - e.radius) or (e.state.q.y < world_bounds.min.y - e.radius) or (e.state.q.x > world_bounds.max.x + e.radius) or (e.state.q.y > world_bounds.max.y + e.radius) then
+    if e.type == "miner" or e.type == "player" then
+      miner_count -= 1
+    end
+
+    if e.type == "player" then
+      player_camera.state.q.x = camera_pos.x + 64
+      player_camera.state.q.y = camera_pos.y + 64
+      switch_from_ship()
+      player_mode = "manager"
+    end
     del(entities, e)
-  elseif (e.state.q.x > world_bounds.max.x) or (e.state.q.y > world_bounds.max.y) then
-    miner_count -= 1
-    del(entities, e)
+    del(miner_targets, e)
   end
 
   if e.type == "miner" then
@@ -199,6 +222,7 @@ function update_points(ship)
         last_time_pts_sfx = time
       end
       score += min(pts, 1)
+      total_score += min(pts, 1)
       e.point -= min(pts, 1)
     end
   end
@@ -222,8 +246,8 @@ function update_player()
     if btnp(5) then
       if switch_to_ship() then
         player_mode = "ship"
-      else
-        modify_miner_path()
+      elseif not modify_miner_path() then
+        miner_targets = {}
       end
     elseif btnp(4) then
       player_mode = "menu"
@@ -257,15 +281,8 @@ function update_player_control()
     player.control.acceleration = 0.0
   end
 
-  if btn(3) then
-    player.control.friction = 100.0
-  else
-    player.control.friction = 0.0
-  end
-
   player.control.angular_velocity = mid(player.control.angular_velocity, miner_settings.max_angular_velocity, -miner_settings.max_angular_velocity)
   player.control.acceleration = mid(player.control.acceleration, miner_settings.max_acceleration, -miner_settings.max_acceleration)
-  player.control.friction = mid(player.control.friction, miner_settings.max_friction, -miner_settings.max_friction)
 end
 
 function update_ship_cost()
